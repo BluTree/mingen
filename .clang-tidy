@@ -1,0 +1,10 @@
+---
+HeaderFilterRegex: 'src/.*'
+# ExcludeHeaderFilterRegex: 'deps/win32/.*,deps/lua/.*'
+
+Checks: >
+    clang-diagnostic-*,
+    clang-diagnostics-*,
+    clang-analyzer-*,
+    -clang-analyzer-security.insecureAPI.*,
+    -clang-diagnostic-deprecated-declarations

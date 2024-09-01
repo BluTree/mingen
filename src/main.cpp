@@ -1,9 +1,13 @@
 #include <stdlib.h>
 
-#include "lua.h"
-#include "lualib.h"
+extern "C"
+{
+#include <lua/lua.h>
+#include <lua/lualib.h>
+#include <lua/lauxlib.h>
+}
 
-#include "project.h"
+#include "project.hpp"
 
 void* lua_alloc(void *ud, void *ptr, [[maybe_unused]] size_t osize, size_t nsize)
 {
@@ -30,5 +34,7 @@ int main(int argc, char** argv)
 	luaL_openlibs(L);
 
 	lua_register(L, "project", prj::parse_project);
+
+	luaL_dofile(L, "sample.lua");
 	return 0;
 }

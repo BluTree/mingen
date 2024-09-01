@@ -1,3 +1,20 @@
 {
-	"C_Cpp.default.compilerPath": "C:\\Program Files\\LLVM\\bin\\clang++.exe"
+	"C_Cpp.default.compilerPath": "C:\\Dev\\LLVM\\bin\\clang++.exe",
+	"C_Cpp.codeAnalysis.exclude": {
+		"deps/**": true
+	},
+	"files.associations": {
+		"*.sln": "xml",
+		"log": "log",
+		"xstring": "cpp",
+		"xutility": "cpp",
+		"vcruntime_string.h": "c",
+		"vcruntime.h": "c",
+		"sal.h": "c",
+		"__stdarg___gnuc_va_list.h": "c",
+		"__stdarg_va_copy.h": "c",
+		"__stdarg___va_copy.h": "c",
+		"__stdarg_va_arg.h": "c",
+		"__stdarg_va_list.h": "c"
+	}
 }

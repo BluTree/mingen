@@ -1,0 +1,4 @@
+bin/
+obj/
+.ninja_log
+.ninja_deps
