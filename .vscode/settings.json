@@ -1,4 +1,5 @@
 {
+	"editor.formatOnSave": true,
 	"C_Cpp.default.compilerPath": "C:\\Dev\\LLVM\\bin\\clang++.exe",
 	"C_Cpp.codeAnalysis.exclude": {
 		"deps/**": true

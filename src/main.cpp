@@ -2,14 +2,14 @@
 
 extern "C"
 {
+#include <lua/lauxlib.h>
 #include <lua/lua.h>
 #include <lua/lualib.h>
-#include <lua/lauxlib.h>
 }
 
 #include "project.hpp"
 
-void* lua_alloc(void *ud, void *ptr, [[maybe_unused]] size_t osize, size_t nsize)
+void* lua_alloc(void* ud, void* ptr, [[maybe_unused]] size_t osize, size_t nsize)
 {
 	if (!nsize)
 	{
@@ -20,9 +20,7 @@ void* lua_alloc(void *ud, void *ptr, [[maybe_unused]] size_t osize, size_t nsize
 	else
 	{
 		if (!ptr)
-		{
 			return malloc(nsize);
-		}
 
 		return realloc(ptr, nsize);
 	}

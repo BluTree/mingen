@@ -2,9 +2,9 @@
 
 extern "C"
 {
+#include <lua/lauxlib.h>
 #include <lua/lua.h>
 #include <lua/lualib.h>
-#include <lua/lauxlib.h>
 }
 
 #include "fs.hpp"
@@ -12,7 +12,11 @@ extern "C"
 
 namespace
 {
-	void fill_sources(lua_State* L, const char* dir_filter, const char* file_filter, uint32_t srcs_table_id, uint32_t& src_id)
+	void fill_sources(lua_State*  L,
+	                  char const* dir_filter,
+	                  char const* file_filter,
+	                  uint32_t    srcs_table_id,
+	                  uint32_t&   src_id)
 	{
 		fs::list_files_res files = fs::list_files(dir_filter, file_filter);
 		for (uint32_t i {0}; i < files.size; ++i)
@@ -26,10 +30,10 @@ namespace
 			delete[] files.files;
 
 		fs::list_dirs_res sub_dirs = fs::list_dirs(dir_filter);
-		for(uint32_t i {0}; i < sub_dirs.size; ++i)
+		for (uint32_t i {0}; i < sub_dirs.size; ++i)
 		{
 			uint32_t dir_len = static_cast<uint32_t>(strlen(sub_dirs.dirs[i]));
-			char* filter = new char[dir_len + 3];
+			char*    filter = new char[dir_len + 3];
 			strcpy(filter, sub_dirs.dirs[i]);
 			strcpy(filter + dir_len, "/*");
 			fill_sources(L, filter, file_filter, srcs_table_id, src_id);
@@ -40,7 +44,7 @@ namespace
 		if (sub_dirs.size)
 			delete[] sub_dirs.dirs;
 	}
-}
+} // namespace
 
 namespace prj
 {
@@ -63,9 +67,9 @@ namespace prj
 			lua_rawgeti(L, -2, i + 1);
 			if (lua_isstring(L, -1))
 			{
-				const char* dir = lua_tostring(L, -1);
-				uint32_t dir_len {static_cast<uint32_t>(strlen(dir))};
-				uint32_t pos {str::find(dir, "**", dir_len)};
+				char const* dir = lua_tostring(L, -1);
+				uint32_t    dir_len {static_cast<uint32_t>(strlen(dir))};
+				uint32_t    pos {str::find(dir, "**", dir_len)};
 				if (pos != UINT32_MAX)
 				{
 					char* filter = new char[pos + 2];
@@ -105,4 +109,4 @@ namespace prj
 
 		return 1;
 	}
-}
+} // namespace prj
