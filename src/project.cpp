@@ -69,8 +69,8 @@ namespace prj
 			{
 				char const* dir = lua_tostring(L, -1);
 				uint32_t    dir_len {static_cast<uint32_t>(strlen(dir))};
-				uint32_t    pos {str::find(dir, "**", dir_len)};
-				if (pos != UINT32_MAX)
+				uint32_t    pos {UINT32_MAX};
+				if ((pos = str::find(dir, "**", dir_len)) != UINT32_MAX)
 				{
 					char* filter = new char[pos + 2];
 					strncpy(filter, dir, pos + 1);
@@ -79,29 +79,25 @@ namespace prj
 
 					delete[] filter;
 				}
+				else if ((pos = str::find(dir, "*", dir_len)) != UINT32_MAX)
+				{
+					char* filter = new char[pos + 2];
+					strncpy(filter, dir, pos + 1);
+					filter[pos + 1] = '\0';
+					fs::list_files_res files = fs::list_files(filter, dir + pos + 1);
+					for (uint32_t i {0}; i < files.size; ++i)
+					{
+						lua_pushstring(L, files.files[i]);
+						lua_rawseti(L, 4, sources_processed_size);
+						++sources_processed_size;
+						delete[] files.files[i];
+					}
+					if (files.size)
+						delete[] files.files;
+				}
 				else
 				{
-					pos = str::find(dir, "*", dir_len);
-					if (pos != UINT32_MAX)
-					{
-						char* filter = new char[pos + 2];
-						strncpy(filter, dir, pos + 1);
-						filter[pos + 1] = '\0';
-						fs::list_files_res files = fs::list_files(filter, dir + pos + 1);
-						for (uint32_t i {0}; i < files.size; ++i)
-						{
-							lua_pushstring(L, files.files[i]);
-							lua_rawseti(L, 4, sources_processed_size);
-							++sources_processed_size;
-							delete[] files.files[i];
-						}
-						if (files.size)
-							delete[] files.files;
-					}
-					else
-					{
-						// check file exists + add
-					}
+					// check file exists + add
 				}
 			}
 			lua_pop(L, 1);
