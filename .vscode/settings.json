@@ -16,6 +16,7 @@
 		"__stdarg_va_copy.h": "c",
 		"__stdarg___va_copy.h": "c",
 		"__stdarg_va_arg.h": "c",
-		"__stdarg_va_list.h": "c"
+		"__stdarg_va_list.h": "c",
+		"cstdint": "cpp"
 	}
 }
