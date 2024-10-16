@@ -59,11 +59,10 @@ namespace lua
 		luaL_dofile(L, filename);
 	}
 
+	// NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
 	input parse_input(lua_State* L)
 	{
-		input res {};
-
-		luaL_argcheck(L, lua_istable(L, -1), -1, "'table' expected");
+		input in {};
 
 		lua_pushnil(L);
 
@@ -79,7 +78,7 @@ namespace lua
 				char const* lua_name = lua_tostring(L, -1);
 				char*       name = new char[strlen(lua_name)];
 				strcpy(name, lua_name);
-				res.name = name;
+				in.name = name;
 			}
 			else if (strcmp(key, "type") == 0)
 			{
@@ -92,7 +91,7 @@ namespace lua
 					lua_getfield(L, -1, "__enum_value");
 					if (lua_isnil(L, -1))
 						luaL_error(L, "type: expecting project_type enum");
-					res.type = static_cast<project_type>(lua_tointeger(L, -1));
+					in.type = static_cast<project_type>(lua_tointeger(L, -1));
 				}
 				lua_pop(L, 1);
 			}
@@ -102,24 +101,84 @@ namespace lua
 					luaL_error(L, "sources: expecting array");
 
 				uint32_t len = lua_rawlen(L, -1);
+				if (!len)
+					continue;
+				in.sources_size = len;
+				in.sources = new char const*[len];
 				for (uint32_t i {0}; i < len; ++i)
 				{
 					lua_rawgeti(L, -1, i + 1);
 					if (lua_isstring(L, -1))
 					{
-						// TODO
+						char const* lua_str = lua_tostring(L, -1);
+						char*       str = new char[strlen(lua_str)];
+						in.sources[i] = str;
 					}
 					lua_pop(L, 1);
 				}
 			}
 			else if (strcmp(key, "compile_options") == 0)
 			{
+				if (value_type != LUA_TTABLE)
+					luaL_error(L, "compile_options: expecting array");
+
+				uint32_t len = lua_rawlen(L, -1);
+				if (!len)
+					continue;
+				in.compile_options_size = len;
+				in.compile_options = new char const*[len];
+				for (uint32_t i {0}; i < len; ++i)
+				{
+					lua_rawgeti(L, -1, i + 1);
+					if (lua_isstring(L, -1))
+					{
+						char const* lua_str = lua_tostring(L, -1);
+						char*       str = new char[strlen(lua_str)];
+						in.compile_options[i] = str;
+					}
+					lua_pop(L, 1);
+				}
 			}
 			else if (strcmp(key, "link_options") == 0)
 			{
+				if (value_type != LUA_TTABLE)
+					luaL_error(L, "link_options: expecting array");
+
+				uint32_t len = lua_rawlen(L, -1);
+				if (!len)
+					continue;
+				in.link_options_size = len;
+				in.link_options = new char const*[len];
+				for (uint32_t i {0}; i < len; ++i)
+				{
+					lua_rawgeti(L, -1, i + 1);
+					if (lua_isstring(L, -1))
+					{
+						char const* lua_str = lua_tostring(L, -1);
+						char*       str = new char[strlen(lua_str)];
+						in.link_options[i] = str;
+					}
+					lua_pop(L, 1);
+				}
 			}
 			else if (strcmp(key, "dependencies") == 0)
 			{
+				if (value_type != LUA_TTABLE)
+					luaL_error(L, "link_options: expecting array");
+
+				uint32_t len = lua_rawlen(L, -1);
+				if (!len)
+					continue;
+
+				in.deps_size = len;
+				in.deps = new output[len];
+				for (uint32_t i {0}; i < len; ++i)
+				{
+					lua_rawgeti(L, -1, i + 1);
+					if (lua_istable(L, -1))
+						in.deps[i] = parse_output(L);
+					lua_pop(L, 1);
+				}
 			}
 			else
 			{
@@ -128,6 +187,41 @@ namespace lua
 			}
 		}
 
-		return res;
+		return in;
 	}
+
+	// NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
+
+	void free_input(input const& in)
+	{
+		if (in.name)
+			delete[] in.name;
+
+		if (in.sources)
+			for (uint32_t i {0}; i < in.sources_size; ++i)
+				delete[] in.sources[i];
+
+		if (in.compile_options)
+			for (uint32_t i {0}; i < in.compile_options_size; ++i)
+				delete[] in.compile_options[i];
+
+		if (in.link_options)
+			for (uint32_t i {0}; i < in.link_options_size; ++i)
+				delete[] in.link_options[i];
+
+		if (in.deps)
+			for (uint32_t i {0}; i < in.deps_size; ++i)
+				free_output(in.deps[i]);
+	}
+
+	void dump_output(lua_State* L, output const& out) {}
+
+	output parse_output(lua_State* L)
+	{
+		output out {};
+
+		return out;
+	}
+
+	void free_output(output const& out) {}
 } // namespace lua

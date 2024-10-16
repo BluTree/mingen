@@ -50,6 +50,7 @@ namespace lua
 		struct source
 		{
 			char const* file;
+			// Empty by default, but can be written manually in projects files
 			char const* compile_options;
 		};
 
@@ -58,11 +59,14 @@ namespace lua
 		source*  sources;
 		uint32_t sources_size;
 
+		char const* compile_options;
 		char const* link_options;
 	};
 
 	input parse_input(lua_State* L);
+	void  free_input(input const& in);
 
 	void   dump_output(lua_State* L, output const& out);
 	output parse_output(lua_State* L);
+	void   free_output(output const& out);
 } // namespace lua

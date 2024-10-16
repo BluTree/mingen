@@ -13,4 +13,4 @@ local prj_exe = mg.project({
 	dependencies = {prj_lib}
 })
 
--- mg.generate(prj_exe)
+-- mg.generate({prj_exe})

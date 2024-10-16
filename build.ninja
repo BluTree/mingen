@@ -23,6 +23,7 @@ build obj/fs.o: cxx src/fs.cpp
 build obj/main.o: cxx src/main.cpp
 build obj/project.o: cxx src/project.cpp
 build obj/string.o: cxx src/string.cpp
+build obj/lua_env.o: cxx src/lua_env.cpp
 
 build obj/lua/lapi.o: c deps/lua/lapi.c
 build obj/lua/lauxlib.o: c deps/lua/lauxlib.c
@@ -62,6 +63,7 @@ build bin/mingen.exe: link$
  obj/main.o $
  obj/project.o $
  obj/string.o $
+ obj/lua_env.o $
  obj/lua/lapi.o $
  obj/lua/lauxlib.o $
  obj/lua/lbaselib.o $
