@@ -30,7 +30,7 @@ namespace fs
 	/// process files discovered by `dir_filter`. to read. A null or not '\0' terminated
 	/// string results in undefined behavior.
 	/// @return list_files_res List of files present in `dir_filter`, matching
-	/// `file_filter`. If no files matche, `files = nullptr` and `size = 0`.
+	/// `file_filter`. If no files match, `files = nullptr` and `size = 0`.
 	list_files_res list_files(char const* dir_filter, char const* file_filter);
 
 	/// @brief Verifies `file` presence in the filesystem.

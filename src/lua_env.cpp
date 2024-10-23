@@ -60,6 +60,7 @@ namespace lua
 	}
 
 	// NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
+
 	input parse_input(lua_State* L)
 	{
 		input in {};
@@ -164,7 +165,7 @@ namespace lua
 			else if (strcmp(key, "dependencies") == 0)
 			{
 				if (value_type != LUA_TTABLE)
-					luaL_error(L, "link_options: expecting array");
+					luaL_error(L, "dependencies: expecting array");
 
 				uint32_t len = lua_rawlen(L, -1);
 				if (!len)
@@ -214,14 +215,151 @@ namespace lua
 				free_output(in.deps[i]);
 	}
 
-	void dump_output(lua_State* L, output const& out) {}
+	void dump_output(lua_State* L, output const& out)
+	{
+		lua_newtable(L);
+
+		lua_pushstring(L, out.name);
+		lua_setfield(L, -2, "name");
+
+		if (out.sources)
+		{
+			lua_newtable(L);
+			for (uint32_t i {0}; i < out.sources_size; ++i)
+			{
+				lua_newtable(L);
+				lua_pushstring(L, out.sources[i].file);
+				lua_setfield(L, -2, "file");
+
+				if (out.sources[i].compile_options)
+				{
+					lua_pushstring(L, out.sources[i].compile_options);
+					lua_setfield(L, -2, "compile_options");
+				}
+				lua_rawseti(L, -2, i + 1);
+			}
+			lua_setfield(L, -2, "sources");
+		}
+
+		if (out.compile_options)
+		{
+			lua_pushstring(L, out.compile_options);
+			lua_setfield(L, -2, "compile_options");
+		}
+
+		if (out.link_options)
+		{
+			lua_pushstring(L, out.link_options);
+			lua_setfield(L, -2, "link_options");
+		}
+	}
+
+	// NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
 
 	output parse_output(lua_State* L)
 	{
 		output out {};
 
+		lua_pushnil(L);
+
+		while (lua_next(L, -2))
+		{
+			char const* key = lua_tostring(L, -2);
+			int32_t     value_type = lua_type(L, -1);
+			if (strcmp(key, "name") == 0)
+			{
+				if (value_type != LUA_TSTRING)
+					luaL_error(L, "name: expecting string");
+
+				char const* lua_name = lua_tostring(L, -1);
+				char*       name = new char[strlen(lua_name)];
+				strcpy(name, lua_name);
+				out.name = name;
+			}
+			else if (strcmp(key, "sources"))
+			{
+				if (value_type != LUA_TTABLE)
+					luaL_error(L, "sources: expecting array");
+
+				uint32_t len = lua_rawlen(L, -1);
+				if (!len)
+					continue;
+				out.sources_size = len;
+				out.sources = new output::source[len];
+				for (uint32_t i {0}; i < len; ++i)
+				{
+					lua_rawgeti(L, -1, i + 1);
+					if (lua_istable(L, -1))
+					{
+						lua_getfield(L, -1, "file");
+						if (lua_isstring(L, -1))
+						{
+							char const* lua_file = lua_tostring(L, -1);
+							char*       file = new char[strlen(lua_file)];
+							strcpy(file, lua_file);
+							out.sources[i].file = file;
+						}
+						lua_getfield(L, -1, "compile_options");
+						if (lua_isstring(L, -1))
+						{
+							char const* lua_compile_options = lua_tostring(L, -1);
+							char* compile_options = new char[strlen(lua_compile_options)];
+							strcpy(compile_options, lua_compile_options);
+							out.sources[i].compile_options = compile_options;
+						}
+						else
+						{
+							out.sources[i].compile_options = nullptr;
+						}
+						lua_pop(L, 2);
+					}
+					lua_pop(L, 1);
+				}
+			}
+			else if (strcmp(key, "compile_options"))
+			{
+				if (value_type != LUA_TSTRING)
+					luaL_error(L, "compile_options: expecting string");
+
+				char const* lua_compile_options = lua_tostring(L, -1);
+				char*       compile_options = new char[strlen(lua_compile_options)];
+				strcpy(compile_options, lua_compile_options);
+				out.compile_options = compile_options;
+			}
+			else if (strcmp(key, "link_options"))
+			{
+				if (value_type != LUA_TSTRING)
+					luaL_error(L, "link_options: expecting string");
+
+				char const* lua_link_options = lua_tostring(L, -1);
+				char*       link_options = new char[strlen(lua_link_options)];
+				strcpy(link_options, lua_link_options);
+				out.link_options = link_options;
+			}
+		}
+
 		return out;
 	}
 
-	void free_output(output const& out) {}
+	// NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
+
+	void free_output(output const& out)
+	{
+		if (out.name)
+			delete[] out.name;
+
+		if (out.sources)
+			for (uint32_t i {0}; i < out.sources_size; ++i)
+			{
+				delete[] out.sources[i].file;
+				if (out.sources[i].compile_options)
+					delete[] out.sources[i].compile_options;
+			}
+
+		if (out.compile_options)
+			delete[] out.compile_options;
+
+		if (out.link_options)
+			delete[] out.link_options;
+	}
 } // namespace lua

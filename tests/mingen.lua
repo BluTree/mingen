@@ -1,3 +1,5 @@
+-- mg.dirs("bin", "lib", "obj", "build")
+
 local prj_lib = mg.project({
 	name = "lib",
 	type = mg.project_type.static_libary,

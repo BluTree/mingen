@@ -4,5 +4,5 @@ struct lua_State;
 
 namespace prj
 {
-	int parse_project(lua_State* L);
+	int new_project(lua_State* L);
 }

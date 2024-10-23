@@ -8,6 +8,7 @@ extern "C"
 }
 
 #include "fs.hpp"
+#include "lua_env.hpp"
 #include "string.hpp"
 
 namespace
@@ -48,60 +49,54 @@ namespace
 
 namespace prj
 {
-	int parse_project(lua_State* L)
+	int new_project(lua_State* L)
 	{
-		luaL_argcheck(L, lua_isstring(L, 1), 1, "'string' expected");
-		luaL_argcheck(L, lua_istable(L, 2), 2, "'table' expected");
+		luaL_argcheck(L, lua_istable(L, 1), 2, "'table' expected");
+		lua::input  in = lua::parse_input(L);
+		lua::output out {0};
 
-		lua_pushliteral(L, "sources");
-		lua_gettable(L, 2);
-		luaL_argcheck(L, !lua_isnil(L, -1), 2, "\"sources\" entry expected in table");
-		luaL_argcheck(L, lua_istable(L, -1), 2, "\"sources\": array expected");
-
-		uint32_t sources_size {static_cast<uint32_t>(lua_rawlen(L, -1))};
-		lua_newtable(L);
-
-		uint32_t sources_processed_size {1};
-		for (uint32_t i {0}; i < sources_size; ++i)
+		for (uint32_t i {0}; i < in.sources_size; ++i)
 		{
-			lua_rawgeti(L, -2, i + 1);
-			if (lua_isstring(L, -1))
-			{
-				char const* dir = lua_tostring(L, -1);
-				uint32_t    dir_len {static_cast<uint32_t>(strlen(dir))};
-				uint32_t    pos {UINT32_MAX};
-				if ((pos = str::find(dir, "**", dir_len)) != UINT32_MAX)
-				{
-					char* filter = new char[pos + 2];
-					strncpy(filter, dir, pos + 1);
-					filter[pos + 1] = '\0';
-					fill_sources(L, filter, dir + pos + 2, 4, sources_processed_size);
+			uint32_t source_len {static_cast<uint32_t>(strlen(in.sources[i]))};
+			uint32_t pos {UINT32_MAX};
 
-					delete[] filter;
-				}
-				else if ((pos = str::find(dir, "*", dir_len)) != UINT32_MAX)
-				{
-					char* filter = new char[pos + 2];
-					strncpy(filter, dir, pos + 1);
-					filter[pos + 1] = '\0';
-					fs::list_files_res files = fs::list_files(filter, dir + pos + 1);
-					for (uint32_t i {0}; i < files.size; ++i)
-					{
-						lua_pushstring(L, files.files[i]);
-						lua_rawseti(L, 4, sources_processed_size);
-						++sources_processed_size;
-						delete[] files.files[i];
-					}
-					if (files.size)
-						delete[] files.files;
-				}
-				else
-				{
-					// check file exists + add
-				}
+			if ((pos = str::find(in.sources[i], "**", source_len)) != UINT32_MAX)
+			{
+				char* filter = new char[pos + 2];
+				strncpy(filter, in.sources[i], pos + 1);
+				filter[pos + 1] = '\0';
+				// TODO fill_sources
+				delete[] filter;
 			}
-			lua_pop(L, 1);
+			else if ((pos = str::find(in.sources[i], "*", source_len)) != UINT32_MAX)
+			{
+				char* filter = new char[pos + 2];
+				strncpy(filter, in.sources[i], pos + 1);
+				filter[pos + 1] = '\0';
+				fs::list_files_res files =
+					fs::list_files(filter, in.sources[i] + pos + 1);
+				if (out.sources_capacity < out.sources_size + files.size)
+				{
+					out.sources_capacity *= 2;
+					lua::output::source* new_sources =
+						new lua::output::source[out.sources_capacity];
+					memcpy(new_sources, out.sources,
+					       out.sources_size * sizeof(lua::output::source));
+					delete[] out.sources;
+					out.sources = new_sources;
+				}
+				for (uint32_t i {0}; i < files.size; ++i)
+					out.sources[out.sources_size + i].file = files.files[i];
+				if (files.size)
+					delete[] files.files;
+			}
+			else
+			{
+			}
 		}
+
+		lua::dump_output(L, out);
+		lua::free_output(out);
 
 		return 1;
 	}

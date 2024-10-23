@@ -57,6 +57,7 @@ namespace lua
 		char const* name;
 
 		source*  sources;
+		uint32_t sources_capacity;
 		uint32_t sources_size;
 
 		char const* compile_options;
