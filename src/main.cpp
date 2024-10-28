@@ -3,8 +3,7 @@
 
 int main(int argc, char** argv)
 {
-	int i = 0;
 	lua::create();
-	lua::run_file("test/mingen.lua");
+	lua::run_file("./tests/mingen.lua");
 	return 0;
 }

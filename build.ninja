@@ -17,9 +17,10 @@ rule link
 
 cxxflags = -g -isystemdeps --std=c++20 -m64 -Wno-deprecated-declarations
 cflags = -g -isystemdeps -m64
-lflags = /nologo /machine:X64 /incremental:no /debug msvcrt.lib kernel32.lib
+lflags = /nologo /machine:X64 /incremental:no /debug kernel32.lib
 
 build obj/fs.o: cxx src/fs.cpp
+build obj/generator.o: cxx src/generator.cpp
 build obj/main.o: cxx src/main.cpp
 build obj/project.o: cxx src/project.cpp
 build obj/string.o: cxx src/string.cpp
@@ -60,6 +61,7 @@ build obj/lua/lzio.o: c deps/lua/lzio.c
 
 build bin/mingen.exe: link$
  obj/fs.o $
+ obj/generator.o $
  obj/main.o $
  obj/project.o $
  obj/string.o $

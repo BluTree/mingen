@@ -54,7 +54,8 @@ namespace lua
 			char const* compile_options;
 		};
 
-		char const* name;
+		char const*  name;
+		project_type type;
 
 		source*  sources;
 		uint32_t sources_capacity;
@@ -62,6 +63,9 @@ namespace lua
 
 		char const* compile_options;
 		char const* link_options;
+
+		output*  deps;
+		uint32_t deps_size;
 	};
 
 	input parse_input(lua_State* L);

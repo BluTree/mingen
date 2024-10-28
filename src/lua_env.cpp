@@ -36,7 +36,7 @@ namespace lua
 
 		lua_newtable(L);
 
-		lua_pushcclosure(L, prj::parse_project, 0);
+		lua_pushcclosure(L, prj::new_project, 0);
 		lua_setfield(L, -2, "project");
 
 		lua_newtable(L);
@@ -44,7 +44,7 @@ namespace lua
 		{
 			lua_newtable(L);
 			lua_pushinteger(L, i);
-			lua_setfield(L, -2, "__enum_value");
+			lua_setfield(L, -2, "__project_type_enum_value");
 			lua_setfield(L, -2, project_type_names[i]);
 		}
 		lua_setfield(L, -2, "project_type");
@@ -56,14 +56,19 @@ namespace lua
 
 	void run_file(char const* filename)
 	{
-		luaL_dofile(L, filename);
+		if (luaL_dofile(L, filename))
+			printf("%s", lua_tostring(L, -1));
 	}
 
 	// NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
 
 	input parse_input(lua_State* L)
 	{
-		input in {};
+		input in {0};
+		in.type = project_type::count;
+
+		// TODO manually read allowed configs before iterating on table, because lua_next
+		// doesn't order the values in initialisation order
 
 		lua_pushnil(L);
 
@@ -89,7 +94,7 @@ namespace lua
 				}
 				else
 				{
-					lua_getfield(L, -1, "__enum_value");
+					lua_getfield(L, -1, "__project_type_enum_value");
 					if (lua_isnil(L, -1))
 						luaL_error(L, "type: expecting project_type enum");
 					in.type = static_cast<project_type>(lua_tointeger(L, -1));
@@ -113,6 +118,7 @@ namespace lua
 					{
 						char const* lua_str = lua_tostring(L, -1);
 						char*       str = new char[strlen(lua_str)];
+						strcpy(str, lua_str);
 						in.sources[i] = str;
 					}
 					lua_pop(L, 1);
@@ -135,6 +141,7 @@ namespace lua
 					{
 						char const* lua_str = lua_tostring(L, -1);
 						char*       str = new char[strlen(lua_str)];
+						strcpy(str, lua_str);
 						in.compile_options[i] = str;
 					}
 					lua_pop(L, 1);
@@ -157,6 +164,7 @@ namespace lua
 					{
 						char const* lua_str = lua_tostring(L, -1);
 						char*       str = new char[strlen(lua_str)];
+						strcpy(str, lua_str);
 						in.link_options[i] = str;
 					}
 					lua_pop(L, 1);
@@ -186,7 +194,13 @@ namespace lua
 				// TODO not error output
 				luaL_error(L, "Unknown key: %s", key);
 			}
+			lua_pop(L, 1);
 		}
+
+		if (!in.name)
+			luaL_error(L, "missing key: name");
+		if (in.type == project_type::count)
+			luaL_error(L, "missing key: type");
 
 		return in;
 	}
@@ -200,15 +214,18 @@ namespace lua
 
 		if (in.sources)
 			for (uint32_t i {0}; i < in.sources_size; ++i)
-				delete[] in.sources[i];
+				if (in.sources[i])
+					delete[] in.sources[i];
 
 		if (in.compile_options)
 			for (uint32_t i {0}; i < in.compile_options_size; ++i)
-				delete[] in.compile_options[i];
+				if (in.compile_options[i])
+					delete[] in.compile_options[i];
 
 		if (in.link_options)
 			for (uint32_t i {0}; i < in.link_options_size; ++i)
-				delete[] in.link_options[i];
+				if (in.link_options[i])
+					delete[] in.link_options[i];
 
 		if (in.deps)
 			for (uint32_t i {0}; i < in.deps_size; ++i)
@@ -252,13 +269,24 @@ namespace lua
 			lua_pushstring(L, out.link_options);
 			lua_setfield(L, -2, "link_options");
 		}
+
+		if (out.deps)
+		{
+			lua_newtable(L);
+			for (uint32_t i {0}; i < out.deps_size; ++i)
+			{
+				dump_output(L, out.deps[i]);
+				lua_rawseti(L, -1, i + 1);
+			}
+			lua_setfield(L, -1, "deps");
+		}
 	}
 
 	// NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
 
 	output parse_output(lua_State* L)
 	{
-		output out {};
+		output out {0};
 
 		lua_pushnil(L);
 
@@ -336,6 +364,7 @@ namespace lua
 				strcpy(link_options, lua_link_options);
 				out.link_options = link_options;
 			}
+			lua_pop(L, 1);
 		}
 
 		return out;

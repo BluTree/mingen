@@ -99,4 +99,12 @@ namespace fs
 		while (FindNextFileW(entry, &entry_data) != 0);
 		return {files, files_count};
 	}
+
+	bool file_exists(char const* file)
+	{
+		STACK_CHAR_TO_WCHAR(file, wfile);
+		uint32_t attr = GetFileAttributesW(wfile);
+
+		return (attr != INVALID_FILE_ATTRIBUTES) && !(attr & FILE_ATTRIBUTE_DIRECTORY);
+	}
 } // namespace fs

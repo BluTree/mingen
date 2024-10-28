@@ -2,7 +2,7 @@
 Language: Cpp
 BasedOnStyle: LLVM
 AccessModifierOffset: -4
-AlignArrayOfStructure: Left
+AlignArrayOfStructures: Left
 AlignConsecutiveDeclarations:
   Enabled: true
   AcrossEmptyLines: false
@@ -57,4 +57,3 @@ SpacesInContainerLiterals: false
 Standard: c++20
 TabWidth: 4
 UseTab: AlignWithSpaces
----
