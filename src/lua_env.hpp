@@ -68,10 +68,10 @@ namespace lua
 		uint32_t deps_size;
 	};
 
-	input parse_input(lua_State* L);
+	input parse_input(lua_State* L, int32_t idx = -1);
 	void  free_input(input const& in);
 
 	void   dump_output(lua_State* L, output const& out);
-	output parse_output(lua_State* L);
+	output parse_output(lua_State* L, int32_t idx = -1);
 	void   free_output(output const& out);
 } // namespace lua

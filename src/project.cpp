@@ -11,43 +11,45 @@ extern "C"
 #include "lua_env.hpp"
 #include "string.hpp"
 
-namespace
-{
-	void fill_sources(char const* dir_filter, char const* file_filter, lua::output& out)
-	{
-		fs::list_files_res files = fs::list_files(dir_filter, file_filter);
-		if (out.sources_capacity < out.sources_size + files.size)
-		{
-			out.sources_capacity *= 2;
-			lua::output::source* new_sources = reinterpret_cast<lua::output::source*>(
-				realloc(out.sources, out.sources_capacity * sizeof(lua::output::source)));
-			out.sources = new_sources;
-		}
-		for (uint32_t i {0}; i < files.size; ++i)
-			out.sources[out.sources_size + i].file = files.files[i];
-		out.sources_size += files.size;
-		if (files.size)
-			delete[] files.files;
-
-		fs::list_dirs_res sub_dirs = fs::list_dirs(dir_filter);
-		for (uint32_t i {0}; i < sub_dirs.size; ++i)
-		{
-			uint32_t dir_len = static_cast<uint32_t>(strlen(sub_dirs.dirs[i]));
-			char*    filter = new char[dir_len + 3];
-			strcpy(filter, sub_dirs.dirs[i]);
-			strcpy(filter + dir_len, "/*");
-			fill_sources(filter, file_filter, out);
-
-			delete[] filter;
-			delete[] sub_dirs.dirs[i];
-		}
-		if (sub_dirs.size)
-			delete[] sub_dirs.dirs;
-	}
-} // namespace
-
 namespace prj
 {
+	namespace
+	{
+		void
+		fill_sources(char const* dir_filter, char const* file_filter, lua::output& out)
+		{
+			fs::list_files_res files = fs::list_files(dir_filter, file_filter);
+			if (out.sources_capacity < out.sources_size + files.size)
+			{
+				out.sources_capacity *= 2;
+				lua::output::source* new_sources =
+					reinterpret_cast<lua::output::source*>(realloc(
+						out.sources, out.sources_capacity * sizeof(lua::output::source)));
+				out.sources = new_sources;
+			}
+			for (uint32_t i {0}; i < files.size; ++i)
+				out.sources[out.sources_size + i].file = files.files[i];
+			out.sources_size += files.size;
+			if (files.size)
+				delete[] files.files;
+
+			fs::list_dirs_res sub_dirs = fs::list_dirs(dir_filter);
+			for (uint32_t i {0}; i < sub_dirs.size; ++i)
+			{
+				uint32_t dir_len = static_cast<uint32_t>(strlen(sub_dirs.dirs[i]));
+				char*    filter = new char[dir_len + 3];
+				strcpy(filter, sub_dirs.dirs[i]);
+				strcpy(filter + dir_len, "/*");
+				fill_sources(filter, file_filter, out);
+
+				delete[] filter;
+				delete[] sub_dirs.dirs[i];
+			}
+			if (sub_dirs.size)
+				delete[] sub_dirs.dirs;
+		}
+	} // namespace
+
 	int new_project(lua_State* L)
 	{
 		luaL_argcheck(L, lua_istable(L, 1), 2, "'table' expected");

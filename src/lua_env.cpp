@@ -62,11 +62,13 @@ namespace lua
 
 	// NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
 
-	input parse_input(lua_State* L)
+	input parse_input(lua_State* L, int32_t idx)
 	{
 		input in {0};
 		in.type = project_type::count;
 
+		if (idx != -1)
+			lua_pushvalue(L, idx);
 		// TODO manually read allowed configs before iterating on table, because lua_next
 		// doesn't order the values in initialisation order
 
@@ -284,9 +286,12 @@ namespace lua
 
 	// NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
 
-	output parse_output(lua_State* L)
+	output parse_output(lua_State* L, int32_t idx)
 	{
 		output out {0};
+
+		if (idx != -1)
+			lua_pushvalue(L, idx);
 
 		lua_pushnil(L);
 
