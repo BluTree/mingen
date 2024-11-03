@@ -38,18 +38,19 @@ uint32_t wchar_len(char const* buf);
 
 namespace str
 {
-
-	uint32_t find(char const* str, char const* buf);
 	uint32_t find(char const* str,
 	              char const* buf,
-	              uint32_t    str_len,
+	              uint32_t    str_len = UINT32_MAX,
 	              uint32_t    buf_len = UINT32_MAX);
+	uint32_t rfind(char const* str,
+	               char const* buf,
+	               uint32_t    str_len = UINT32_MAX,
+	               uint32_t    buf_len = UINT32_MAX);
 
 	bool starts_with(char const* str, char const* buf);
 	bool starts_with(char const* str, char const* buf, uint32_t buf_len);
-	bool ends_with(char const* str, char const* buf);
 	bool ends_with(char const* str,
 	               char const* buf,
-	               uint32_t    str_len,
+	               uint32_t    str_len = UINT32_MAX,
 	               uint32_t    buf_len = UINT32_MAX);
 };

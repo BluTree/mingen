@@ -39,14 +39,18 @@ uint32_t wchar_len(char const* buf)
 
 namespace str
 {
-
-	uint32_t find(char const* str, char const* buf)
+	uint32_t find(char const* str, char const* buf, uint32_t str_len, uint32_t buf_len)
 	{
-		uint32_t str_len {static_cast<uint32_t>(strlen(str))};
+		if (str_len == UINT32_MAX)
+			str_len = static_cast<uint32_t>(strlen(str));
+
+		if (buf_len == UINT32_MAX)
+			buf_len = static_cast<uint32_t>(strlen(buf));
+
 		uint32_t res {UINT32_MAX};
-		for (uint32_t i {0}; i < str_len; ++i)
+		for (uint32_t i {0}; i < str_len - buf_len; ++i)
 		{
-			if (str[i] == buf[0] && strncmp(str + i, buf, strlen(buf)) == 0)
+			if (str[i] == buf[0] && strncmp(str + i, buf, buf_len) == 0)
 			{
 				res = i;
 				break;
@@ -56,17 +60,20 @@ namespace str
 		return res;
 	}
 
-	uint32_t find(char const* str, char const* buf, uint32_t str_len, uint32_t buf_len)
+	uint32_t rfind(char const* str, char const* buf, uint32_t str_len, uint32_t buf_len)
 	{
+		if (str_len == UINT32_MAX)
+			str_len = static_cast<uint32_t>(strlen(str));
+
 		if (buf_len == UINT32_MAX)
 			buf_len = static_cast<uint32_t>(strlen(buf));
 
 		uint32_t res {UINT32_MAX};
-		for (uint32_t i {0}; i < str_len; ++i)
+		for (uint32_t i {str_len - buf_len + 1}; i > 0; --i)
 		{
-			if (str[i] == buf[0] && strncmp(str + i, buf, buf_len) == 0)
+			if (str[i - 1] == buf[0] && strncmp(str + i - 1, buf, buf_len) == 0)
 			{
-				res = i;
+				res = i - 1;
 				break;
 			}
 		}
@@ -85,13 +92,6 @@ namespace str
 		if (buf_len == UINT32_MAX)
 			buf_len = static_cast<uint32_t>(strlen(buf));
 		return strncmp(str, buf, buf_len) == 0;
-	}
-
-	bool ends_with(char const* str, char const* buf)
-	{
-		uint32_t buf_len {static_cast<uint32_t>(strlen(buf))};
-		uint32_t str_len {static_cast<uint32_t>(strlen(str))};
-		return strncmp(str + str_len - buf_len, buf, buf_len) == 0;
 	}
 
 	bool ends_with(char const* str, char const* buf, uint32_t str_len, uint32_t buf_len)

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "generator.hpp"
 #include "project.hpp"
 
 namespace
@@ -50,6 +51,8 @@ namespace lua
 		lua_setfield(L, -2, "project_type");
 
 		// TODO generate func
+		lua_pushcclosure(L, gen::ninja_generator, 0);
+		lua_setfield(L, -2, "generate");
 
 		lua_setglobal(L, "mg");
 	}
@@ -84,7 +87,7 @@ namespace lua
 					luaL_error(L, "name: expecting string");
 
 				char const* lua_name = lua_tostring(L, -1);
-				char*       name = new char[strlen(lua_name)];
+				char*       name = new char[strlen(lua_name) + 1];
 				strcpy(name, lua_name);
 				in.name = name;
 			}
@@ -119,7 +122,7 @@ namespace lua
 					if (lua_isstring(L, -1))
 					{
 						char const* lua_str = lua_tostring(L, -1);
-						char*       str = new char[strlen(lua_str)];
+						char*       str = new char[strlen(lua_str) + 1];
 						strcpy(str, lua_str);
 						in.sources[i] = str;
 					}
@@ -142,7 +145,7 @@ namespace lua
 					if (lua_isstring(L, -1))
 					{
 						char const* lua_str = lua_tostring(L, -1);
-						char*       str = new char[strlen(lua_str)];
+						char*       str = new char[strlen(lua_str) + 1];
 						strcpy(str, lua_str);
 						in.compile_options[i] = str;
 					}
@@ -165,7 +168,7 @@ namespace lua
 					if (lua_isstring(L, -1))
 					{
 						char const* lua_str = lua_tostring(L, -1);
-						char*       str = new char[strlen(lua_str)];
+						char*       str = new char[strlen(lua_str) + 1];
 						strcpy(str, lua_str);
 						in.link_options[i] = str;
 					}
@@ -215,23 +218,35 @@ namespace lua
 			delete[] in.name;
 
 		if (in.sources)
+		{
 			for (uint32_t i {0}; i < in.sources_size; ++i)
 				if (in.sources[i])
 					delete[] in.sources[i];
+			delete[] in.sources;
+		}
 
 		if (in.compile_options)
+		{
 			for (uint32_t i {0}; i < in.compile_options_size; ++i)
 				if (in.compile_options[i])
 					delete[] in.compile_options[i];
+			delete[] in.compile_options;
+		}
 
 		if (in.link_options)
+		{
 			for (uint32_t i {0}; i < in.link_options_size; ++i)
 				if (in.link_options[i])
 					delete[] in.link_options[i];
+			delete[] in.link_options;
+		}
 
 		if (in.deps)
+		{
 			for (uint32_t i {0}; i < in.deps_size; ++i)
 				free_output(in.deps[i]);
+			delete[] in.deps;
+		}
 	}
 
 	void dump_output(lua_State* L, output const& out)
@@ -240,6 +255,11 @@ namespace lua
 
 		lua_pushstring(L, out.name);
 		lua_setfield(L, -2, "name");
+
+		lua_newtable(L);
+		lua_pushinteger(L, static_cast<int32_t>(out.type));
+		lua_setfield(L, -2, "__project_type_enum_value");
+		lua_setfield(L, -2, "type");
 
 		if (out.sources)
 		{
@@ -278,9 +298,9 @@ namespace lua
 			for (uint32_t i {0}; i < out.deps_size; ++i)
 			{
 				dump_output(L, out.deps[i]);
-				lua_rawseti(L, -1, i + 1);
+				lua_rawseti(L, -2, i + 1);
 			}
-			lua_setfield(L, -1, "deps");
+			lua_setfield(L, -2, "dependencies");
 		}
 	}
 
@@ -305,11 +325,26 @@ namespace lua
 					luaL_error(L, "name: expecting string");
 
 				char const* lua_name = lua_tostring(L, -1);
-				char*       name = new char[strlen(lua_name)];
+				char*       name = new char[strlen(lua_name) + 1];
 				strcpy(name, lua_name);
 				out.name = name;
 			}
-			else if (strcmp(key, "sources"))
+			else if (strcmp(key, "type") == 0)
+			{
+				if (value_type != LUA_TTABLE)
+				{
+					luaL_error(L, "type: expecting project_type enum");
+				}
+				else
+				{
+					lua_getfield(L, -1, "__project_type_enum_value");
+					if (lua_isnil(L, -1))
+						luaL_error(L, "type: expecting project_type enum");
+					out.type = static_cast<project_type>(lua_tointeger(L, -1));
+				}
+				lua_pop(L, 1);
+			}
+			else if (strcmp(key, "sources") == 0)
 			{
 				if (value_type != LUA_TTABLE)
 					luaL_error(L, "sources: expecting array");
@@ -317,7 +352,7 @@ namespace lua
 				uint32_t len = lua_rawlen(L, -1);
 				if (!len)
 					continue;
-				out.sources_size = len;
+				out.sources_size = out.sources_capacity = len;
 				out.sources = new output::source[len];
 				for (uint32_t i {0}; i < len; ++i)
 				{
@@ -328,7 +363,7 @@ namespace lua
 						if (lua_isstring(L, -1))
 						{
 							char const* lua_file = lua_tostring(L, -1);
-							char*       file = new char[strlen(lua_file)];
+							char*       file = new char[strlen(lua_file) + 1];
 							strcpy(file, lua_file);
 							out.sources[i].file = file;
 						}
@@ -336,7 +371,8 @@ namespace lua
 						if (lua_isstring(L, -1))
 						{
 							char const* lua_compile_options = lua_tostring(L, -1);
-							char* compile_options = new char[strlen(lua_compile_options)];
+							char*       compile_options =
+								new char[strlen(lua_compile_options) + 1];
 							strcpy(compile_options, lua_compile_options);
 							out.sources[i].compile_options = compile_options;
 						}
@@ -349,25 +385,44 @@ namespace lua
 					lua_pop(L, 1);
 				}
 			}
-			else if (strcmp(key, "compile_options"))
+			else if (strcmp(key, "compile_options") == 0)
 			{
 				if (value_type != LUA_TSTRING)
 					luaL_error(L, "compile_options: expecting string");
 
 				char const* lua_compile_options = lua_tostring(L, -1);
-				char*       compile_options = new char[strlen(lua_compile_options)];
+				char*       compile_options = new char[strlen(lua_compile_options) + 1];
 				strcpy(compile_options, lua_compile_options);
 				out.compile_options = compile_options;
 			}
-			else if (strcmp(key, "link_options"))
+			else if (strcmp(key, "link_options") == 0)
 			{
 				if (value_type != LUA_TSTRING)
 					luaL_error(L, "link_options: expecting string");
 
 				char const* lua_link_options = lua_tostring(L, -1);
-				char*       link_options = new char[strlen(lua_link_options)];
+				char*       link_options = new char[strlen(lua_link_options) + 1];
 				strcpy(link_options, lua_link_options);
 				out.link_options = link_options;
+			}
+			else if (strcmp(key, "dependencies") == 0)
+			{
+				if (value_type != LUA_TTABLE)
+					luaL_error(L, "dependencies: expecting array");
+
+				uint32_t len = lua_rawlen(L, -1);
+				if (!len)
+					continue;
+
+				out.deps_size = len;
+				out.deps = new output[len];
+				for (uint32_t i {0}; i < len; ++i)
+				{
+					lua_rawgeti(L, -1, i + 1);
+					if (lua_istable(L, -1))
+						out.deps[i] = parse_output(L);
+					lua_pop(L, 1);
+				}
 			}
 			lua_pop(L, 1);
 		}
@@ -383,12 +438,15 @@ namespace lua
 			delete[] out.name;
 
 		if (out.sources)
+		{
 			for (uint32_t i {0}; i < out.sources_size; ++i)
 			{
 				delete[] out.sources[i].file;
 				if (out.sources[i].compile_options)
 					delete[] out.sources[i].compile_options;
 			}
+			delete[] out.sources;
+		}
 
 		if (out.compile_options)
 			delete[] out.compile_options;

@@ -1,18 +1,18 @@
--- mg.dirs("bin", "lib", "obj", "build")
+-- mg.dir("build")
 
 local prj_lib = mg.project({
 	name = "lib",
 	type = mg.project_type.static_library,
-	sources = {"lib/**.cc"},
+	sources = {"src/lib/**.cc"},
 	compile_options = {"-g", "-Wall"}
 })
 
 local prj_exe = mg.project({
 	name = "exe",
 	type = mg.project_type.executable,
-	sources = {"exe/**.cc"},
+	sources = {"src/exe/**.cc"},
 	compile_options = {"-g", "-Wall"},
 	dependencies = {prj_lib}
 })
 
--- mg.generate({prj_exe})
+mg.generate({prj_exe})

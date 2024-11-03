@@ -21,14 +21,20 @@ namespace prj
 			fs::list_files_res files = fs::list_files(dir_filter, file_filter);
 			if (out.sources_capacity < out.sources_size + files.size)
 			{
-				out.sources_capacity *= 2;
+				if (!out.sources_capacity)
+					out.sources_capacity = 1;
+				else
+					out.sources_capacity *= 2;
 				lua::output::source* new_sources =
 					reinterpret_cast<lua::output::source*>(realloc(
 						out.sources, out.sources_capacity * sizeof(lua::output::source)));
 				out.sources = new_sources;
 			}
 			for (uint32_t i {0}; i < files.size; ++i)
+			{
 				out.sources[out.sources_size + i].file = files.files[i];
+				out.sources[out.sources_size + i].compile_options = nullptr;
+			}
 			out.sources_size += files.size;
 			if (files.size)
 				delete[] files.files;
@@ -59,6 +65,8 @@ namespace prj
 		out.name = in.name;
 		in.name = nullptr;
 
+		out.type = in.type;
+
 		for (uint32_t i {0}; i < in.sources_size; ++i)
 		{
 			uint32_t source_len {static_cast<uint32_t>(strlen(in.sources[i]))};
@@ -81,7 +89,10 @@ namespace prj
 					fs::list_files(filter, in.sources[i] + pos + 1);
 				if (out.sources_capacity < out.sources_size + files.size)
 				{
-					out.sources_capacity *= 2;
+					if (!out.sources_capacity)
+						out.sources_capacity = 1;
+					else
+						out.sources_capacity *= 2;
 					lua::output::source* new_sources =
 						reinterpret_cast<lua::output::source*>(
 							realloc(out.sources,
@@ -98,7 +109,10 @@ namespace prj
 			{
 				if (out.sources_capacity < out.sources_size + 1)
 				{
-					out.sources_capacity *= 2;
+					if (!out.sources_capacity)
+						out.sources_capacity = 1;
+					else
+						out.sources_capacity *= 2;
 					lua::output::source* new_sources =
 						reinterpret_cast<lua::output::source*>(
 							realloc(out.sources,
@@ -124,8 +138,13 @@ namespace prj
 				uint32_t len {static_cast<uint32_t>(strlen(in.compile_options[i]))};
 				strncpy(compile_options + pos, in.compile_options[i], len);
 				pos += len;
+				if (i < in.compile_options_size - 1)
+				{
+					strncpy(compile_options + pos, " ", 1);
+					pos += 1;
+				}
 			}
-			compile_options[compile_options_str_size] = '\0';
+			compile_options[compile_options_str_size - 1] = '\0';
 			out.compile_options = compile_options;
 		}
 
@@ -142,8 +161,13 @@ namespace prj
 				uint32_t len {static_cast<uint32_t>(strlen(in.link_options[i]))};
 				strncpy(link_options + pos, in.link_options[i], len);
 				pos += len;
+				if (i < in.link_options_size - 1)
+				{
+					strncpy(link_options + pos, " ", 1);
+					pos += 1;
+				}
 			}
-			link_options[link_options_str_size] = '\0';
+			link_options[link_options_str_size - 1] = '\0';
 			out.link_options = link_options;
 		}
 

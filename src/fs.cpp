@@ -17,7 +17,7 @@ namespace fs
 		HANDLE entry = FindFirstFileExW(wdir, FindExInfoBasic, &entry_data,
 		                                FindExSearchNameMatch, nullptr, 0);
 
-		if (!entry)
+		if (entry == INVALID_HANDLE_VALUE)
 			return {nullptr, 0};
 
 		do
@@ -63,7 +63,7 @@ namespace fs
 		WIN32_FIND_DATAW entry_data;
 		HANDLE           entry = FindFirstFileExW(wdir, FindExInfoBasic, &entry_data,
 		                                          FindExSearchNameMatch, nullptr, 0);
-		if (!entry)
+		if (entry == INVALID_HANDLE_VALUE)
 			return {nullptr, 0};
 
 		do
