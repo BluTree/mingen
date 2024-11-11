@@ -1,5 +1,7 @@
 #include "string.hpp"
 
+#include "mem.hpp"
+
 #include <string.h>
 
 [[nodiscard]] char* wchar_to_char(wchar_t const* wbuf)
@@ -7,7 +9,7 @@
 	size_t wlen = wcslen(wbuf);
 	size_t len = 0;
 	len = WideCharToMultiByte(CP_UTF8, 0, wbuf, wlen, nullptr, 0, nullptr, nullptr);
-	char* buf = new char[len + 1];
+	char* buf = tmalloc<char>(len + 1);
 	WideCharToMultiByte(CP_UTF8, 0, wbuf, wlen, buf, len + 1, nullptr, nullptr);
 	buf[len] = '\0';
 
@@ -19,7 +21,7 @@
 	size_t len = strlen(buf);
 	size_t wlen = 0;
 	wlen = MultiByteToWideChar(CP_UTF8, 0, buf, len, nullptr, 0);
-	wchar_t* wbuf = new wchar_t[wlen + 1];
+	wchar_t* wbuf = tmalloc<wchar_t>(wlen + 1);
 	MultiByteToWideChar(CP_UTF8, 0, buf, len, wbuf, wlen + 1);
 	wbuf[wlen] = L'\0';
 

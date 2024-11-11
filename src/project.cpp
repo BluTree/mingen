@@ -9,6 +9,7 @@ extern "C"
 
 #include "fs.hpp"
 #include "lua_env.hpp"
+#include "mem.hpp"
 #include "string.hpp"
 
 namespace prj
@@ -25,9 +26,8 @@ namespace prj
 					out.sources_capacity = 1;
 				else
 					out.sources_capacity *= 2;
-				lua::output::source* new_sources =
-					reinterpret_cast<lua::output::source*>(realloc(
-						out.sources, out.sources_capacity * sizeof(lua::output::source)));
+				lua::output::source* new_sources = trealloc(
+					out.sources, out.sources_capacity * sizeof(lua::output::source));
 				out.sources = new_sources;
 			}
 			for (uint32_t i {0}; i < files.size; ++i)
@@ -37,22 +37,22 @@ namespace prj
 			}
 			out.sources_size += files.size;
 			if (files.size)
-				delete[] files.files;
+				tfree(files.files);
 
 			fs::list_dirs_res sub_dirs = fs::list_dirs(dir_filter);
 			for (uint32_t i {0}; i < sub_dirs.size; ++i)
 			{
 				uint32_t dir_len = static_cast<uint32_t>(strlen(sub_dirs.dirs[i]));
-				char*    filter = new char[dir_len + 3];
+				char*    filter = tmalloc<char>(dir_len + 3);
 				strcpy(filter, sub_dirs.dirs[i]);
 				strcpy(filter + dir_len, "/*");
 				fill_sources(filter, file_filter, out);
 
-				delete[] filter;
-				delete[] sub_dirs.dirs[i];
+				tfree(filter);
+				tfree(sub_dirs.dirs[i]);
 			}
 			if (sub_dirs.size)
-				delete[] sub_dirs.dirs;
+				tfree(sub_dirs.dirs);
 		}
 	} // namespace
 
@@ -74,15 +74,15 @@ namespace prj
 
 			if ((pos = str::find(in.sources[i], "**", source_len)) != UINT32_MAX)
 			{
-				char* filter = new char[pos + 2];
+				char* filter = tmalloc<char>(pos + 2);
 				strncpy(filter, in.sources[i], pos + 1);
 				filter[pos + 1] = '\0';
 				fill_sources(filter, in.sources[i] + pos + 2, out);
-				delete[] filter;
+				tfree(filter);
 			}
 			else if ((pos = str::find(in.sources[i], "*", source_len)) != UINT32_MAX)
 			{
-				char* filter = new char[pos + 2];
+				char* filter = tmalloc<char>(pos + 2);
 				strncpy(filter, in.sources[i], pos + 1);
 				filter[pos + 1] = '\0';
 				fs::list_files_res files =
@@ -93,17 +93,15 @@ namespace prj
 						out.sources_capacity = 1;
 					else
 						out.sources_capacity *= 2;
-					lua::output::source* new_sources =
-						reinterpret_cast<lua::output::source*>(
-							realloc(out.sources,
-					                out.sources_capacity * sizeof(lua::output::source)));
+					lua::output::source* new_sources = trealloc(
+						out.sources, out.sources_capacity * sizeof(lua::output::source));
 					out.sources = new_sources;
 				}
 				for (uint32_t i {0}; i < files.size; ++i)
 					out.sources[out.sources_size + i].file = files.files[i];
 				out.sources_size += files.size;
 				if (files.size)
-					delete[] files.files;
+					tfree(files.files);
 			}
 			else if (fs::file_exists(in.sources[i]))
 			{
@@ -113,10 +111,8 @@ namespace prj
 						out.sources_capacity = 1;
 					else
 						out.sources_capacity *= 2;
-					lua::output::source* new_sources =
-						reinterpret_cast<lua::output::source*>(
-							realloc(out.sources,
-					                out.sources_capacity * sizeof(lua::output::source)));
+					lua::output::source* new_sources = trealloc(
+						out.sources, out.sources_capacity * sizeof(lua::output::source));
 					out.sources = new_sources;
 				}
 				out.sources[out.sources_size].file = in.sources[i];
@@ -131,7 +127,7 @@ namespace prj
 			for (uint32_t i {0}; i < in.compile_options_size; ++i)
 				compile_options_str_size += strlen(in.compile_options[i]) + 1;
 
-			char*    compile_options = new char[compile_options_str_size];
+			char*    compile_options = tmalloc<char>(compile_options_str_size);
 			uint32_t pos {0};
 			for (uint32_t i {0}; i < in.compile_options_size; ++i)
 			{
@@ -154,7 +150,7 @@ namespace prj
 			for (uint32_t i {0}; i < in.link_options_size; ++i)
 				link_options_str_size += strlen(in.link_options[i]) + 1;
 
-			char*    link_options = new char[link_options_str_size];
+			char*    link_options = tmalloc<char>(link_options_str_size);
 			uint32_t pos {0};
 			for (uint32_t i {0}; i < in.link_options_size; ++i)
 			{

@@ -1,5 +1,7 @@
 #include "generator.hpp"
+
 #include "lua_env.hpp"
+#include "mem.hpp"
 #include "string.hpp"
 
 extern "C"
@@ -19,7 +21,7 @@ namespace gen
 	{
 		char** collect_objs(lua::output const& out)
 		{
-			char** objs = new char*[out.sources_size];
+			char** objs = tmalloc<char*>(out.sources_size);
 			for (uint32_t i {0}; i < out.sources_size; ++i)
 			{
 				uint32_t file_start {str::rfind(out.sources[i].file, "/")};
@@ -30,14 +32,14 @@ namespace gen
 				uint32_t file_ext {str::rfind(out.sources[i].file, ".")};
 				if (file_ext != UINT32_MAX)
 				{
-					objs[i] = new char[file_ext - file_start + 2];
+					objs[i] = tmalloc<char>(file_ext - file_start + 2);
 					strncpy(objs[i], out.sources[i].file + file_start,
 					        file_ext - file_start);
 					strcpy(objs[i] + file_ext - file_start, ".o");
 				}
 				else
 				{
-					objs[i] = new char[strlen(out.sources[i].file) - file_start + 3];
+					objs[i] = tmalloc<char>(strlen(out.sources[i].file) - file_start + 3);
 					strcpy(objs[i], out.sources[i].file + file_start);
 					strcpy(objs[i] + strlen(out.sources[i].file) - file_start, ".o");
 				}
@@ -52,7 +54,7 @@ namespace gen
 			{
 				switch (out.deps[i].type)
 				{
-					case lua::project_type::custom:
+					case lua::project_type::sources:
 					{
 						char** objs = collect_objs(out.deps[i]);
 
@@ -60,8 +62,8 @@ namespace gen
 							fprintf(file, "build/obj/%s ", objs[i]);
 
 						for (uint32_t i {0}; i < out.deps[i].sources_size; ++i)
-							delete[] objs[i];
-						delete[] objs;
+							tfree(objs[i]);
+						tfree(objs);
 						break;
 					}
 					case lua::project_type::shared_library:
@@ -146,7 +148,7 @@ namespace gen
 					        out.name);
 					break;
 				}
-				case lua::project_type::custom: [[fallthrough]];
+				case lua::project_type::sources: [[fallthrough]];
 				default:
 				{
 					fwrite("\n", 1, 1, file);
@@ -155,8 +157,8 @@ namespace gen
 			}
 
 			for (uint32_t i {0}; i < out.sources_size; ++i)
-				delete[] objs[i];
-			delete[] objs;
+				tfree(objs[i]);
+			tfree(objs);
 		}
 	} // namespace
 
@@ -175,7 +177,8 @@ namespace gen
 
 		// create rules
 		constexpr char rules[] =
-			R"(rule cxx
+			R"(builddir=build/
+rule cxx
     description = Compiling ${in}
     deps = gcc
     depfile = ${out}.d

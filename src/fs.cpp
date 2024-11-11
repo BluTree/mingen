@@ -3,6 +3,7 @@
 #include <win32/file.h>
 #include <win32/misc.h>
 
+#include "mem.hpp"
 #include "string.hpp"
 
 namespace fs
@@ -34,7 +35,7 @@ namespace fs
 		if (!dirs_count)
 			return {nullptr, 0};
 
-		char**   dirs {new char*[dirs_count]};
+		char**   dirs {tmalloc<char*>(dirs_count)};
 		uint32_t i {0};
 		entry = FindFirstFileExW(wdir, FindExInfoBasic, &entry_data,
 		                         FindExSearchNameMatch, nullptr, 0);
@@ -45,7 +46,7 @@ namespace fs
 			    wcscmp(entry_data.cFileName, L"..") != 0)
 			{
 				STACK_WCHAR_TO_CHAR(entry_data.cFileName, dn)
-				dirs[i] = new char[strlen(dir_filter) - 1 + strlen(dn) + 1];
+				dirs[i] = tmalloc<char>(strlen(dir_filter) - 1 + strlen(dn) + 1);
 				strncpy(dirs[i], dir_filter, strlen(dir_filter) - 1);
 				strcpy(dirs[i] + strlen(dir_filter) - 1, dn);
 				++i;
@@ -80,7 +81,7 @@ namespace fs
 		if (!files_count)
 			return {nullptr, 0};
 
-		char**   files {new char*[files_count]};
+		char**   files {tmalloc<char*>(files_count)};
 		uint32_t i = 0;
 		entry = FindFirstFileExW(wdir, FindExInfoBasic, &entry_data,
 		                         FindExSearchNameMatch, nullptr, 0);
@@ -90,7 +91,7 @@ namespace fs
 			if (!(entry_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
 			    str::ends_with(fn, file_filter))
 			{
-				files[i] = new char[strlen(dir_filter) - 1 + strlen(fn) + 1];
+				files[i] = tmalloc<char>(strlen(dir_filter) - 1 + strlen(fn) + 1);
 				strncpy(files[i], dir_filter, strlen(dir_filter) - 1);
 				strcpy(files[i] + strlen(dir_filter) - 1, fn);
 				++i;

@@ -4,35 +4,62 @@
 #include <string.h>
 
 #include "generator.hpp"
+#include "mem.hpp"
 #include "project.hpp"
-
-namespace
-{
-	void* lua_alloc(void* ud, void* ptr, [[maybe_unused]] size_t osize, size_t nsize)
-	{
-		if (!nsize)
-		{
-			if (ptr)
-				free(ptr);
-			return nullptr;
-		}
-		else
-		{
-			if (!ptr)
-				return malloc(nsize);
-
-			return realloc(ptr, nsize);
-		}
-	}
-} // namespace
+#include "state.hpp"
 
 namespace lua
 {
-	lua_State* L {nullptr};
+
+	namespace
+	{
+		void* lua_alloc(void* ud, void* ptr, [[maybe_unused]] size_t osize, size_t nsize)
+		{
+			if (!nsize)
+			{
+				if (ptr)
+					tfree(ptr);
+				return nullptr;
+			}
+			else
+			{
+				if (!ptr)
+					return malloc(nsize);
+
+				return realloc(ptr, nsize);
+			}
+		}
+
+		int32_t configurations(lua_State* L)
+		{
+			luaL_argcheck(L, lua_istable(L, 1), 1, "'array' expected");
+
+			g.config_size = lua_rawlen(L, 1);
+
+			luaL_argcheck(L, g.config_size > 0, 1,
+			              "expecting at least one configuration");
+
+			g.configs = tmalloc<char const*>(g.config_size);
+
+			for (uint32_t i {0}; i < g.config_size; ++i)
+			{
+				lua_rawgeti(L, 1, i + 1);
+				char const* lua_str = lua_tostring(L, -1);
+				char*       str = tmalloc<char>(strlen(lua_str) + 1);
+				strcpy(str, lua_str);
+				g.configs[i] = str;
+				lua_pop(L, 1);
+			}
+
+			if (!g.config_param)
+				g.config_param = g.configs[0];
+			return 0;
+		}
+	} // namespace
 
 	void create()
 	{
-		L = lua_newstate(lua_alloc, nullptr);
+		lua_State* L = lua_newstate(lua_alloc, nullptr);
 		luaL_openlibs(L);
 
 		lua_newtable(L);
@@ -50,20 +77,150 @@ namespace lua
 		}
 		lua_setfield(L, -2, "project_type");
 
-		// TODO generate func
 		lua_pushcclosure(L, gen::ninja_generator, 0);
 		lua_setfield(L, -2, "generate");
 
+		lua_pushcclosure(L, configurations, 0);
+		lua_setfield(L, -2, "configurations");
+
 		lua_setglobal(L, "mg");
+
+		g.L = L;
 	}
 
-	void run_file(char const* filename)
+	void destroy()
 	{
-		if (luaL_dofile(L, filename))
-			printf("%s", lua_tostring(L, -1));
+		lua_close(g.L);
+		if (g.config_size)
+		{
+			for (uint32_t i {0}; i < g.config_size; ++i)
+				tfree(g.configs[i]);
+			tfree(g.configs);
+		}
 	}
 
-	// NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
+	int32_t run_file(char const* filename)
+	{
+		if (luaL_dofile(g.L, filename))
+		{
+			printf("%s", lua_tostring(g.L, -1));
+			return 1;
+		}
+
+		return 0;
+	}
+
+	// NOLINTBEGIN(clang-analyzer-unix.Malloc)
+
+	namespace
+	{
+		bool
+		parse_config_input(lua_State* L, char const* key, int32_t value_type, input& in)
+		{
+			if (strcmp(key, "sources") == 0)
+			{
+				if (value_type != LUA_TTABLE)
+					luaL_error(L, "sources: expecting array");
+
+				uint32_t len = lua_rawlen(L, -1);
+				if (!len)
+					return true;
+				in.sources = trealloc(in.sources, in.sources_size + len);
+				for (uint32_t i {in.sources_size}; i < in.sources_size + len; ++i)
+				{
+					lua_rawgeti(L, -1, i + 1);
+					if (lua_isstring(L, -1))
+					{
+						char const* lua_str = lua_tostring(L, -1);
+						char*       str = tmalloc<char>(strlen(lua_str) + 1);
+						strcpy(str, lua_str);
+						in.sources[i] = str;
+					}
+					lua_pop(L, 1);
+				}
+				in.sources_size += len;
+
+				return true;
+			}
+			else if (strcmp(key, "compile_options") == 0)
+			{
+				if (value_type != LUA_TTABLE)
+					luaL_error(L, "compile_options: expecting array");
+
+				uint32_t len = lua_rawlen(L, -1);
+				if (!len)
+					return true;
+				in.compile_options =
+					trealloc(in.compile_options, in.compile_options_size + len);
+				for (uint32_t i {in.compile_options_size};
+				     i < in.compile_options_size + len; ++i)
+				{
+					lua_rawgeti(L, -1, i - in.compile_options_size + 1);
+					if (lua_isstring(L, -1))
+					{
+						char const* lua_str = lua_tostring(L, -1);
+						char*       str = tmalloc<char>(strlen(lua_str) + 1);
+						strcpy(str, lua_str);
+						in.compile_options[i] = str;
+					}
+					lua_pop(L, 1);
+				}
+				in.compile_options_size += len;
+
+				return true;
+			}
+			else if (strcmp(key, "link_options") == 0)
+			{
+				if (value_type != LUA_TTABLE)
+					luaL_error(L, "link_options: expecting array");
+
+				uint32_t len = lua_rawlen(L, -1);
+				if (!len)
+					return true;
+				in.link_options = trealloc(in.link_options, in.link_options_size + len);
+				for (uint32_t i {in.link_options_size}; i < in.link_options_size + len;
+				     ++i)
+				{
+					lua_rawgeti(L, -1, i - in.link_options_size + 1);
+					if (lua_isstring(L, -1))
+					{
+						char const* lua_str = lua_tostring(L, -1);
+						char*       str = tmalloc<char>(strlen(lua_str) + 1);
+						strcpy(str, lua_str);
+						in.link_options[i] = str;
+					}
+					lua_pop(L, 1);
+				}
+
+				in.link_options_size += len;
+
+				return true;
+			}
+			else if (strcmp(key, "dependencies") == 0)
+			{
+				if (value_type != LUA_TTABLE)
+					luaL_error(L, "dependencies: expecting array");
+
+				uint32_t len = lua_rawlen(L, -1);
+				if (!len)
+					return true;
+				in.deps = trealloc(in.deps, in.deps_size + len);
+				for (uint32_t i {in.deps_size}; i < in.deps_size + len; ++i)
+				{
+					lua_rawgeti(L, -1, i - in.deps_size + 1);
+					if (lua_istable(L, -1))
+						in.deps[i] = parse_output(L);
+					lua_pop(L, 1);
+				}
+
+				in.deps_size += len;
+
+				return true;
+			}
+
+			return false;
+		}
+	} // namespace
 
 	input parse_input(lua_State* L, int32_t idx)
 	{
@@ -87,7 +244,7 @@ namespace lua
 					luaL_error(L, "name: expecting string");
 
 				char const* lua_name = lua_tostring(L, -1);
-				char*       name = new char[strlen(lua_name) + 1];
+				char*       name = tmalloc<char>(strlen(lua_name) + 1);
 				strcpy(name, lua_name);
 				in.name = name;
 			}
@@ -106,98 +263,45 @@ namespace lua
 				}
 				lua_pop(L, 1);
 			}
-			else if (strcmp(key, "sources") == 0)
+			else if (strcmp(key, g.config_param) == 0)
 			{
 				if (value_type != LUA_TTABLE)
-					luaL_error(L, "sources: expecting array");
-
-				uint32_t len = lua_rawlen(L, -1);
-				if (!len)
-					continue;
-				in.sources_size = len;
-				in.sources = new char const*[len];
-				for (uint32_t i {0}; i < len; ++i)
 				{
-					lua_rawgeti(L, -1, i + 1);
-					if (lua_isstring(L, -1))
+					luaL_error(L, "%s: expecting table", key);
+				}
+				else
+				{
+					lua_pushnil(L);
+
+					while (lua_next(L, -2))
 					{
-						char const* lua_str = lua_tostring(L, -1);
-						char*       str = new char[strlen(lua_str) + 1];
-						strcpy(str, lua_str);
-						in.sources[i] = str;
+						char const* config_key = lua_tostring(L, -2);
+						int32_t     config_value_type = lua_type(L, -1);
+						if (!parse_config_input(L, config_key, config_value_type, in))
+						{
+							// TODO not error output
+							luaL_error(L, "Unknown key: %s", key);
+						}
+						lua_pop(L, 1);
 					}
-					lua_pop(L, 1);
 				}
 			}
-			else if (strcmp(key, "compile_options") == 0)
+			else if (!parse_config_input(L, key, value_type, in))
 			{
-				if (value_type != LUA_TTABLE)
-					luaL_error(L, "compile_options: expecting array");
+				bool err {true};
 
-				uint32_t len = lua_rawlen(L, -1);
-				if (!len)
-					continue;
-				in.compile_options_size = len;
-				in.compile_options = new char const*[len];
-				for (uint32_t i {0}; i < len; ++i)
+				for (uint32_t i {0}; i < g.config_size; ++i)
 				{
-					lua_rawgeti(L, -1, i + 1);
-					if (lua_isstring(L, -1))
+					if (strcmp(key, g.configs[i]) == 0)
 					{
-						char const* lua_str = lua_tostring(L, -1);
-						char*       str = new char[strlen(lua_str) + 1];
-						strcpy(str, lua_str);
-						in.compile_options[i] = str;
+						err = false;
+						break;
 					}
-					lua_pop(L, 1);
 				}
-			}
-			else if (strcmp(key, "link_options") == 0)
-			{
-				if (value_type != LUA_TTABLE)
-					luaL_error(L, "link_options: expecting array");
 
-				uint32_t len = lua_rawlen(L, -1);
-				if (!len)
-					continue;
-				in.link_options_size = len;
-				in.link_options = new char const*[len];
-				for (uint32_t i {0}; i < len; ++i)
-				{
-					lua_rawgeti(L, -1, i + 1);
-					if (lua_isstring(L, -1))
-					{
-						char const* lua_str = lua_tostring(L, -1);
-						char*       str = new char[strlen(lua_str) + 1];
-						strcpy(str, lua_str);
-						in.link_options[i] = str;
-					}
-					lua_pop(L, 1);
-				}
-			}
-			else if (strcmp(key, "dependencies") == 0)
-			{
-				if (value_type != LUA_TTABLE)
-					luaL_error(L, "dependencies: expecting array");
-
-				uint32_t len = lua_rawlen(L, -1);
-				if (!len)
-					continue;
-
-				in.deps_size = len;
-				in.deps = new output[len];
-				for (uint32_t i {0}; i < len; ++i)
-				{
-					lua_rawgeti(L, -1, i + 1);
-					if (lua_istable(L, -1))
-						in.deps[i] = parse_output(L);
-					lua_pop(L, 1);
-				}
-			}
-			else
-			{
-				// TODO not error output
-				luaL_error(L, "Unknown key: %s", key);
+				if (err)
+					// TODO not error output
+					luaL_error(L, "Unknown key: %s", key);
 			}
 			lua_pop(L, 1);
 		}
@@ -210,42 +314,42 @@ namespace lua
 		return in;
 	}
 
-	// NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
+	// NOLINTEND(clang-analyzer-unix.Malloc)
 
 	void free_input(input const& in)
 	{
 		if (in.name)
-			delete[] in.name;
+			tfree(in.name);
 
 		if (in.sources)
 		{
 			for (uint32_t i {0}; i < in.sources_size; ++i)
 				if (in.sources[i])
-					delete[] in.sources[i];
-			delete[] in.sources;
+					tfree(in.sources[i]);
+			tfree(in.sources);
 		}
 
 		if (in.compile_options)
 		{
 			for (uint32_t i {0}; i < in.compile_options_size; ++i)
 				if (in.compile_options[i])
-					delete[] in.compile_options[i];
-			delete[] in.compile_options;
+					tfree(in.compile_options[i]);
+			tfree(in.compile_options);
 		}
 
 		if (in.link_options)
 		{
 			for (uint32_t i {0}; i < in.link_options_size; ++i)
 				if (in.link_options[i])
-					delete[] in.link_options[i];
-			delete[] in.link_options;
+					tfree(in.link_options[i]);
+			tfree(in.link_options);
 		}
 
 		if (in.deps)
 		{
 			for (uint32_t i {0}; i < in.deps_size; ++i)
 				free_output(in.deps[i]);
-			delete[] in.deps;
+			tfree(in.deps);
 		}
 	}
 
@@ -304,7 +408,7 @@ namespace lua
 		}
 	}
 
-	// NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
+	// NOLINTBEGIN(clang-analyzer-unix.Malloc)
 
 	output parse_output(lua_State* L, int32_t idx)
 	{
@@ -325,7 +429,7 @@ namespace lua
 					luaL_error(L, "name: expecting string");
 
 				char const* lua_name = lua_tostring(L, -1);
-				char*       name = new char[strlen(lua_name) + 1];
+				char*       name = tmalloc<char>(strlen(lua_name) + 1);
 				strcpy(name, lua_name);
 				out.name = name;
 			}
@@ -353,7 +457,7 @@ namespace lua
 				if (!len)
 					continue;
 				out.sources_size = out.sources_capacity = len;
-				out.sources = new output::source[len];
+				out.sources = tmalloc<output::source>(len);
 				for (uint32_t i {0}; i < len; ++i)
 				{
 					lua_rawgeti(L, -1, i + 1);
@@ -363,7 +467,7 @@ namespace lua
 						if (lua_isstring(L, -1))
 						{
 							char const* lua_file = lua_tostring(L, -1);
-							char*       file = new char[strlen(lua_file) + 1];
+							char*       file = tmalloc<char>(strlen(lua_file) + 1);
 							strcpy(file, lua_file);
 							out.sources[i].file = file;
 						}
@@ -372,7 +476,7 @@ namespace lua
 						{
 							char const* lua_compile_options = lua_tostring(L, -1);
 							char*       compile_options =
-								new char[strlen(lua_compile_options) + 1];
+								tmalloc<char>(strlen(lua_compile_options) + 1);
 							strcpy(compile_options, lua_compile_options);
 							out.sources[i].compile_options = compile_options;
 						}
@@ -391,7 +495,7 @@ namespace lua
 					luaL_error(L, "compile_options: expecting string");
 
 				char const* lua_compile_options = lua_tostring(L, -1);
-				char*       compile_options = new char[strlen(lua_compile_options) + 1];
+				char* compile_options = tmalloc<char>(strlen(lua_compile_options) + 1);
 				strcpy(compile_options, lua_compile_options);
 				out.compile_options = compile_options;
 			}
@@ -401,7 +505,7 @@ namespace lua
 					luaL_error(L, "link_options: expecting string");
 
 				char const* lua_link_options = lua_tostring(L, -1);
-				char*       link_options = new char[strlen(lua_link_options) + 1];
+				char*       link_options = tmalloc<char>(strlen(lua_link_options) + 1);
 				strcpy(link_options, lua_link_options);
 				out.link_options = link_options;
 			}
@@ -415,7 +519,7 @@ namespace lua
 					continue;
 
 				out.deps_size = len;
-				out.deps = new output[len];
+				out.deps = tmalloc<output>(len);
 				for (uint32_t i {0}; i < len; ++i)
 				{
 					lua_rawgeti(L, -1, i + 1);
@@ -430,28 +534,28 @@ namespace lua
 		return out;
 	}
 
-	// NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
+	// NOLINTEND(clang-analyzer-unix.Malloc)
 
 	void free_output(output const& out)
 	{
 		if (out.name)
-			delete[] out.name;
+			tfree(out.name);
 
 		if (out.sources)
 		{
 			for (uint32_t i {0}; i < out.sources_size; ++i)
 			{
-				delete[] out.sources[i].file;
+				tfree(out.sources[i].file);
 				if (out.sources[i].compile_options)
-					delete[] out.sources[i].compile_options;
+					tfree(out.sources[i].compile_options);
 			}
-			delete[] out.sources;
+			tfree(out.sources);
 		}
 
 		if (out.compile_options)
-			delete[] out.compile_options;
+			tfree(out.compile_options);
 
 		if (out.link_options)
-			delete[] out.link_options;
+			tfree(out.link_options);
 	}
 } // namespace lua

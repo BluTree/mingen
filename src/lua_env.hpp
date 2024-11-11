@@ -11,19 +11,20 @@ extern "C"
 
 namespace lua
 {
-	void create();
-	void run_file(char const* filename);
+	void    create();
+	void    destroy();
+	int32_t run_file(char const* filename);
 
 	enum project_type
 	{
-		custom,
+		sources,
 		static_library,
 		shared_library,
 		executable,
 		count
 	};
 
-	char const* const project_type_names[] {"custom", "static_library", "shared_library",
+	char const* const project_type_names[] {"sources", "static_library", "shared_library",
 	                                        "executable"};
 
 	struct output;
