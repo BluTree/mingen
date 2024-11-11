@@ -19,6 +19,7 @@ local prj_exe = mg.project({
 	name = "exe",
 	type = mg.project_type.executable,
 	sources = {"src/exe/**.cc"},
+	includes = {"src/lib"},
 	compile_options = {"-g", "-Wall"},
 	dependencies = {prj_lib}
 })

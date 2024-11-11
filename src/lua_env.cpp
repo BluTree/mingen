@@ -142,6 +142,31 @@ namespace lua
 
 				return true;
 			}
+			else if (strcmp(key, "includes") == 0)
+			{
+				if (value_type != LUA_TTABLE)
+					luaL_error(L, "includes: expecting array");
+
+				uint32_t len = lua_rawlen(L, -1);
+				if (!len)
+					return true;
+				in.includes = trealloc(in.includes, in.includes_size + len);
+				for (uint32_t i {in.includes_size}; i < in.includes_size + len; ++i)
+				{
+					lua_rawgeti(L, -1, i - in.includes_size + 1);
+					if (lua_isstring(L, -1))
+					{
+						char const* lua_str = lua_tostring(L, -1);
+						char*       str = tmalloc<char>(strlen(lua_str) + 1);
+						strcpy(str, lua_str);
+						in.includes[i] = str;
+					}
+					lua_pop(L, 1);
+				}
+				in.includes_size += len;
+
+				return true;
+			}
 			else if (strcmp(key, "compile_options") == 0)
 			{
 				if (value_type != LUA_TTABLE)

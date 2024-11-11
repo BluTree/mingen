@@ -59,7 +59,7 @@ namespace gen
 						char** objs = collect_objs(out.deps[i]);
 
 						for (uint32_t i {0}; i < out.deps[i].sources_size; ++i)
-							fprintf(file, "build/obj/%s ", objs[i]);
+							fprintf(file, "obj/%s/%s ", out.deps[i].name, objs[i]);
 
 						for (uint32_t i {0}; i < out.deps[i].sources_size; ++i)
 							tfree(objs[i]);
@@ -68,12 +68,12 @@ namespace gen
 					}
 					case lua::project_type::shared_library:
 					{
-						fprintf(file, "build/lib/%s.a ", out.deps[i].name);
+						fprintf(file, "lib/%s.a ", out.deps[i].name);
 						break;
 					}
 					case lua::project_type::static_library:
 					{
-						fprintf(file, "build/lib/%s.a ", out.deps[i].name);
+						fprintf(file, "lib/%s.a ", out.deps[i].name);
 						break;
 					}
 					case lua::project_type::executable: [[fallthrough]];
@@ -92,7 +92,7 @@ namespace gen
 			char** objs = collect_objs(out);
 			for (uint32_t i {0}; i < out.sources_size; ++i)
 			{
-				fprintf(file, "build build/obj/%s: cxx %s\n", objs[i],
+				fprintf(file, "build obj/%s/%s: cxx ../%s\n", out.name, objs[i],
 				        out.sources[i].file);
 				fprintf(file, "    cxxflags = %s\n",
 				        out.sources[i].compile_options ? out.sources[i].compile_options
@@ -103,9 +103,9 @@ namespace gen
 			{
 				case lua::project_type::executable:
 				{
-					fprintf(file, "build build/bin/%s.exe: link ", out.name);
+					fprintf(file, "build bin/%s.exe: link ", out.name);
 					for (uint32_t i {0}; i < out.sources_size; ++i)
-						fprintf(file, "build/obj/%s ", objs[i]);
+						fprintf(file, "obj/%s/%s ", out.name, objs[i]);
 
 					write_deps(out, file);
 					fseek(file, -1, SEEK_CUR);
@@ -113,15 +113,14 @@ namespace gen
 						fprintf(file, "\n    lflags = %s\n\n", out.link_options);
 					else
 						fwrite("\n\n", 1, 2, file);
-					fprintf(file, "build %s: phony build/bin/%s.exe\n\n", out.name,
-					        out.name);
+					fprintf(file, "build %s: phony bin/%s.exe\n\n", out.name, out.name);
 					break;
 				}
 				case lua::project_type::shared_library:
 				{
-					fprintf(file, "build build/bin/%s.dll: link ", out.name);
+					fprintf(file, "build bin/%s.dll: link ", out.name);
 					for (uint32_t i {0}; i < out.sources_size; ++i)
-						fprintf(file, "build/obj/%s ", objs[i]);
+						fprintf(file, "obj/%s ", objs[i]);
 
 					write_deps(out, file);
 					fseek(file, -1, SEEK_CUR);
@@ -130,22 +129,20 @@ namespace gen
 						fprintf(file, "\n    lflags = %s\n\n", out.link_options);
 					else
 						fwrite("\n\n", 1, 2, file);
-					fprintf(file, "build %s: phony build/bin/%s.a\n\n", out.name,
-					        out.name);
+					fprintf(file, "build %s: phony bin/%s.a\n\n", out.name, out.name);
 					break;
 				}
 				case lua::project_type::static_library:
 				{
-					fprintf(file, "build build/lib/%s.a: lib ", out.name);
+					fprintf(file, "build lib/%s.a: lib ", out.name);
 					for (uint32_t i {0}; i < out.sources_size; ++i)
-						fprintf(file, "build/obj/%s ", objs[i]);
+						fprintf(file, "obj/%s/%s ", out.name, objs[i]);
 
 					write_deps(out, file);
 					fseek(file, -1, SEEK_CUR);
-					fwrite("\n    lflags = scu\n\n", 1, 19, file);
+					fwrite("\n    lflags = rscu\n\n", 1, 19, file);
 
-					fprintf(file, "build %s: phony build/lib/%s.a\n\n", out.name,
-					        out.name);
+					fprintf(file, "build %s: phony lib/%s.a\n\n", out.name, out.name);
 					break;
 				}
 				case lua::project_type::sources: [[fallthrough]];
@@ -177,20 +174,19 @@ namespace gen
 
 		// create rules
 		constexpr char rules[] =
-			R"(builddir=build/
-rule cxx
+			R"(rule cxx
     description = Compiling ${in}
     deps = gcc
     depfile = ${out}.d
-    command = clang++ ${flags} -MMD -MF ${out}.d -c ${in} -o ${out}
+    command = clang++ ${cxxflags} -MMD -MF ${out}.d -c ${in} -o ${out}
 
 rule lib
     description = Creating ${out}
-    command = llvm-ar ${flags} ${in} -o ${out}
+    command = llvm-ar ${lflags} ${out} ${in}
 
 rule link
     description = Creating ${out}
-    command = clang++ ${flags} ${in} -o ${out}
+    command = clang++ ${lflags} ${in} -o ${out}
 
 )";
 

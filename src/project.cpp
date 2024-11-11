@@ -121,11 +121,13 @@ namespace prj
 			}
 		}
 
-		if (in.compile_options_size)
+		if (in.compile_options_size || in.includes_size)
 		{
 			uint32_t compile_options_str_size {0};
 			for (uint32_t i {0}; i < in.compile_options_size; ++i)
 				compile_options_str_size += strlen(in.compile_options[i]) + 1;
+			for (uint32_t i {0}; i < in.includes_size; ++i)
+				compile_options_str_size += strlen(in.includes[i]) + 5 /*-I + ""*/;
 
 			char*    compile_options = tmalloc<char>(compile_options_str_size);
 			uint32_t pos {0};
@@ -134,14 +136,40 @@ namespace prj
 				uint32_t len {static_cast<uint32_t>(strlen(in.compile_options[i]))};
 				strncpy(compile_options + pos, in.compile_options[i], len);
 				pos += len;
-				if (i < in.compile_options_size - 1)
+				if (in.includes_size || i < in.compile_options_size - 1)
 				{
 					strncpy(compile_options + pos, " ", 1);
 					pos += 1;
 				}
 			}
+
+			for (uint32_t i {0}; i < in.includes_size; ++i)
+			{
+				uint32_t len {static_cast<uint32_t>(strlen(in.includes[i]))};
+				strncpy(compile_options + pos, "-I\"", 3);
+				pos += 3;
+				strncpy(compile_options + pos, in.includes[i], len);
+				pos += len;
+				if (i < in.includes_size - 1)
+				{
+					strncpy(compile_options + pos, "\" ", 2);
+					pos += 2;
+				}
+				else
+				{
+					strncpy(compile_options + pos, "\"", 1);
+					pos += 1;
+				}
+			}
 			compile_options[compile_options_str_size - 1] = '\0';
 			out.compile_options = compile_options;
+		}
+
+		if (in.includes_size)
+		{
+			uint32_t includes_str_size {0};
+			for (uint32_t i {0}; i < in.includes_size; ++i)
+				includes_str_size += strlen(in.includes[i]) + 5 /*-I + ""*/;
 		}
 
 		if (in.link_options_size)

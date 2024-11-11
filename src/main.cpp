@@ -27,7 +27,7 @@ void help()
 "    -f, --file " ITALIC "file" DEFAULT "\n"
 "        Runs " ITALIC "file" DEFAULT " for generating. If no file is specified, defaults to running mingen.lua\n"
 "\n"
-"    -c, --configuration " ITALIC "config" DEFAULT " (Soon)\n"
+"    -c, --configuration " ITALIC "config" DEFAULT "\n"
 "        Generates build files for " ITALIC "config" DEFAULT ". If no configuration is specified, defaults to the first declared configuration.\n"
 "\n"
 "    -f, --flags " ITALIC "flags..." DEFAULT " (Soon)\n"
@@ -119,10 +119,10 @@ int main(int argc, char** argv)
 				g.config_param = argv[++i];
 			}
 		}
-		else if (str::starts_with(argv[i], "--config"))
+		else if (str::starts_with(argv[i], "--configuration"))
 		{
-			if (strlen(argv[i]) > 6 && argv[i][8] == '=')
-				g.config_param = argv[i] + 9;
+			if (strlen(argv[i]) > 6 && argv[i][15] == '=')
+				g.config_param = argv[i] + 16;
 			else
 			{
 				if (i == argc - 1)
