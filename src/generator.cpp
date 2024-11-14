@@ -79,7 +79,7 @@ namespace gen
 						break;
 				}
 			}
-
+			unescaped[pos] = '\0';
 			return unescaped;
 		}
 
@@ -93,8 +93,8 @@ namespace gen
 				{
 					fwrite("	{\n", 1, 3, file);
 					uint32_t file_start {str::rfind(outs[i].sources[j].file, "/") + 1};
-					fprintf(file, "		\"directory\": \"%.*s\",\n", file_start,
-					        outs[i].sources[i].file);
+					fprintf(file, "		\"directory\": \"../%.*s\",\n", file_start,
+					        outs[i].sources[j].file);
 					char* unesc_options =
 						unesc_str(outs[i].sources[j].compile_options
 					                  ? outs[i].sources[j].compile_options
