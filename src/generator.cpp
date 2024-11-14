@@ -2,6 +2,7 @@
 
 #include "lua_env.hpp"
 #include "mem.hpp"
+#include "state.hpp"
 #include "string.hpp"
 
 extern "C"
@@ -19,6 +20,100 @@ namespace gen
 {
 	namespace
 	{
+		char* unesc_str(char const* str)
+		{
+			uint32_t len = strlen(str);
+			char*    unescaped = tmalloc<char>(len * 2);
+			uint32_t pos = 0;
+			for (uint32_t i {0}; i < len; ++i)
+			{
+				switch (str[i])
+				{
+					case '\a':
+						strcpy(unescaped + pos, "\\a");
+						pos += 2;
+						break;
+					case '\b':
+						strcpy(unescaped + pos, "\\b");
+						pos += 2;
+						break;
+					case '\f':
+						strcpy(unescaped + pos, "\\f");
+						pos += 2;
+						break;
+					case '\n':
+						strcpy(unescaped + pos, "\\n");
+						pos += 2;
+						break;
+					case '\r':
+						strcpy(unescaped + pos, "\\r");
+						pos += 2;
+						break;
+					case '\t':
+						strcpy(unescaped + pos, "\\t");
+						pos += 2;
+						break;
+					case '\v':
+						strcpy(unescaped + pos, "\\v");
+						pos += 2;
+						break;
+					case '\\':
+						strcpy(unescaped + pos, "\\\\");
+						pos += 2;
+						break;
+					case '\'':
+						strcpy(unescaped + pos, "\\'");
+						pos += 2;
+						break;
+					case '\"':
+						strcpy(unescaped + pos, "\\\"");
+						pos += 2;
+						break;
+					case '\?':
+						strcpy(unescaped + pos, "\\\?");
+						pos += 2;
+						break;
+					default:
+						unescaped[pos] = str[i];
+						++pos;
+						break;
+				}
+			}
+
+			return unescaped;
+		}
+
+		void generate_db(lua::output* outs, uint32_t outs_size)
+		{
+			FILE* file = fopen("build/compile_commands.json", "w");
+			fwrite("[\n", 1, 2, file);
+			for (uint32_t i {0}; i < outs_size; ++i)
+			{
+				for (uint32_t j {0}; j < outs[i].sources_size; ++j)
+				{
+					fwrite("	{\n", 1, 3, file);
+					uint32_t file_start {str::rfind(outs[i].sources[j].file, "/")};
+					fprintf(file, "		\"directory\": \"%.*s\",\n", file_start,
+					        outs[i].sources[i].file);
+					char* unesc_options =
+						unesc_str(outs[i].sources[j].compile_options
+					                  ? outs[i].sources[j].compile_options
+					                  : outs[i].compile_options);
+					fprintf(file, "		\"command\": \"clang++ %s\",\n", unesc_options);
+					tfree(unesc_options);
+					fprintf(file, "		\"file\": \"%s\"\n",
+					        outs[i].sources[j].file + file_start);
+					if (i == outs_size - 1 && j == outs[i].sources_size - 1)
+						fwrite("	}\n", 1, 3, file);
+					else
+						fwrite("	},\n", 1, 4, file);
+				}
+			}
+			fwrite("]", 1, 1, file);
+
+			fclose(file);
+		}
+
 		char** collect_objs(lua::output const& out)
 		{
 			char** objs = tmalloc<char*>(out.sources_size);
@@ -86,9 +181,6 @@ namespace gen
 
 		void generate(lua::output const& out, FILE* file)
 		{
-			for (uint32_t i {0}; i < out.deps_size; ++i)
-				generate(out.deps[i], file);
-
 			char** objs = collect_objs(out);
 			for (uint32_t i {0}; i < out.sources_size; ++i)
 			{
@@ -192,14 +284,56 @@ rule link
 
 		fwrite(rules, 1, sizeof(rules) - 1, file);
 
+		lua::output* outputs = tmalloc<lua::output>(len);
+		uint32_t     outputs_size = 0;
+		uint32_t     outputs_capacity = len;
+
 		for (uint32_t i {0}; i < len; ++i)
 		{
 			lua_rawgeti(L, 1, 1);
 			lua::output out = lua::parse_output(L);
+			for (uint32_t j {0}; j < out.deps_size; ++j)
+			{
+				bool write {true};
+				for (uint32_t k {0}; k < outputs_size; ++k)
+				{
+					if (strcmp(outputs[k].name, out.deps[j].name) == 0)
+					{
+						write = false;
+						break;
+					}
+				}
 
-			generate(out, file);
+				if (write)
+				{
+					if (outputs_capacity == outputs_size)
+					{
+						outputs = trealloc(outputs, outputs_capacity * 2);
+						outputs_capacity *= 2;
+					}
+					outputs[outputs_size] = out.deps[j];
+					++outputs_size;
+				}
+			}
+
+			if (outputs_capacity == outputs_size)
+			{
+				outputs = trealloc(outputs, outputs_capacity * 2);
+				outputs_capacity *= 2;
+			}
+			outputs[outputs_size] = out;
+			++outputs_size;
+
 			lua_pop(L, 1);
 		}
+
+		if (g.gen_compile_db)
+			generate_db(outputs, outputs_size);
+		for (uint32_t i {0}; i < outputs_size; ++i)
+			generate(outputs[i], file);
+		for (uint32_t i {0}; i < outputs_size; ++i)
+			lua::free_output(outputs[i]);
+		tfree(outputs);
 		fclose(file);
 		return 0;
 	}

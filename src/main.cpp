@@ -32,7 +32,10 @@ void help()
 "\n"
 "    -f, --flags " ITALIC "flags..." DEFAULT " (Soon)\n"
 "        Set the flags to be used when running the script. The flags are to be handled by the script maintainer for its own purpose."
-	   " mingen does nothing with the flags itself.\n";
+	   " mingen does nothing with the flags itself.\n"
+"\n"
+"	--compile-db\n"
+"		Generates a JSON Compilation Database with the ninja file\n";
 	// clang-format on
 	printf("%s", help_str);
 }
@@ -133,6 +136,10 @@ int main(int argc, char** argv)
 				}
 				g.config_param = argv[++i];
 			}
+		}
+		else if (str::starts_with(argv[i], "--compile-db"))
+		{
+			g.gen_compile_db = true;
 		}
 		else if (str::starts_with(argv[i], "-h") || str::starts_with(argv[i], "--help"))
 		{

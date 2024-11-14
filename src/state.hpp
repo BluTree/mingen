@@ -16,6 +16,8 @@ struct mingen_state
 	char const*  config_param {nullptr};
 	char const** configs {nullptr};
 	int32_t      config_size {0};
+
+	bool gen_compile_db {false};
 };
 
 // declared in main.cpp

@@ -28,7 +28,8 @@
 				"-d",
 				"tests",
 				"-c",
-				"release"
+				"release",
+				"--compile-db"
 			],
 			"stopAtEntry": false,
 			"cwd": "${workspaceFolder}",
