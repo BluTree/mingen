@@ -92,7 +92,7 @@ namespace gen
 				for (uint32_t j {0}; j < outs[i].sources_size; ++j)
 				{
 					fwrite("	{\n", 1, 3, file);
-					uint32_t file_start {str::rfind(outs[i].sources[j].file, "/")};
+					uint32_t file_start {str::rfind(outs[i].sources[j].file, "/") + 1};
 					fprintf(file, "		\"directory\": \"%.*s\",\n", file_start,
 					        outs[i].sources[i].file);
 					char* unesc_options =
