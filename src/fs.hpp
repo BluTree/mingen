@@ -39,4 +39,14 @@ namespace fs
 	/// @return true File exists.
 	/// @return false File doesn't exist.
 	bool file_exists(char const* file);
+
+	/// @brief Gets the current working directory.
+	/// @return char* The working directory as a full path.
+	char* get_cwd();
+
+	/// @brief Checks if the path is absolute.
+	/// @param path The path to check.
+	/// @return true Path is absolute.
+	/// @return false Path is relative.
+	bool is_absolute(char const* path);
 }; // namespace fs

@@ -1,6 +1,7 @@
 #include "fs.hpp"
 
 #include <win32/file.h>
+#include <win32/io.h>
 #include <win32/misc.h>
 
 #include "mem.hpp"
@@ -107,5 +108,17 @@ namespace fs
 		uint32_t attr = GetFileAttributesW(wfile);
 
 		return (attr != INVALID_FILE_ATTRIBUTES) && !(attr & FILE_ATTRIBUTE_DIRECTORY);
+	}
+
+	char* get_cwd()
+	{
+		wchar_t  wcwd[512];
+		uint32_t len = GetCurrentDirectoryW(512, wcwd);
+		return wchar_to_char(wcwd);
+	}
+
+	bool is_absolute(char const* path)
+	{
+		return path[1] == ':';
 	}
 } // namespace fs

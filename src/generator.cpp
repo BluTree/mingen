@@ -1,5 +1,6 @@
 #include "generator.hpp"
 
+#include "fs.hpp"
 #include "lua_env.hpp"
 #include "mem.hpp"
 #include "state.hpp"
@@ -86,23 +87,23 @@ namespace gen
 		void generate_db(lua::output* outs, uint32_t outs_size)
 		{
 			FILE* file = fopen("build/compile_commands.json", "w");
+			char* cwd = fs::get_cwd();
+			char* unesc_cwd = unesc_str(cwd);
+			tfree(cwd);
 			fwrite("[\n", 1, 2, file);
 			for (uint32_t i {0}; i < outs_size; ++i)
 			{
 				for (uint32_t j {0}; j < outs[i].sources_size; ++j)
 				{
 					fwrite("	{\n", 1, 3, file);
-					uint32_t file_start {str::rfind(outs[i].sources[j].file, "/") + 1};
-					fprintf(file, "		\"directory\": \"../%.*s\",\n", file_start,
-					        outs[i].sources[j].file);
+					fprintf(file, "		\"directory\": \"%s\\\\build\",\n", unesc_cwd);
 					char* unesc_options =
 						unesc_str(outs[i].sources[j].compile_options
 					                  ? outs[i].sources[j].compile_options
 					                  : outs[i].compile_options);
 					fprintf(file, "		\"command\": \"clang++ %s\",\n", unesc_options);
 					tfree(unesc_options);
-					fprintf(file, "		\"file\": \"%s\"\n",
-					        outs[i].sources[j].file + file_start);
+					fprintf(file, "		\"file\": \"../%s\"\n", outs[i].sources[j].file);
 					if (i == outs_size - 1 && j == outs[i].sources_size - 1)
 						fwrite("	}\n", 1, 3, file);
 					else
@@ -111,6 +112,7 @@ namespace gen
 			}
 			fwrite("]", 1, 1, file);
 
+			tfree(unesc_cwd);
 			fclose(file);
 		}
 
@@ -127,7 +129,7 @@ namespace gen
 				uint32_t file_ext {str::rfind(out.sources[i].file, ".")};
 				if (file_ext != UINT32_MAX)
 				{
-					objs[i] = tmalloc<char>(file_ext - file_start + 2);
+					objs[i] = tmalloc<char>(file_ext - file_start + 3);
 					strncpy(objs[i], out.sources[i].file + file_start,
 					        file_ext - file_start);
 					strcpy(objs[i] + file_ext - file_start, ".o");
@@ -153,11 +155,11 @@ namespace gen
 					{
 						char** objs = collect_objs(out.deps[i]);
 
-						for (uint32_t i {0}; i < out.deps[i].sources_size; ++i)
-							fprintf(file, "obj/%s/%s ", out.deps[i].name, objs[i]);
+						for (uint32_t j {0}; j < out.deps[i].sources_size; ++j)
+							fprintf(file, "obj/%s/%s ", out.deps[i].name, objs[j]);
 
-						for (uint32_t i {0}; i < out.deps[i].sources_size; ++i)
-							tfree(objs[i]);
+						for (uint32_t j {0}; j < out.deps[i].sources_size; ++j)
+							tfree(objs[j]);
 						tfree(objs);
 						break;
 					}
@@ -179,12 +181,24 @@ namespace gen
 			}
 		}
 
+		char* get_ninja_cwd()
+		{
+			char* cwd = fs::get_cwd();
+			char* ninja_cwd = tmalloc<char>(strlen(cwd) + 2);
+			ninja_cwd[0] = cwd[0];
+			ninja_cwd[1] = '$';
+			strcpy(ninja_cwd + 2, cwd + 1);
+			tfree(cwd);
+			return ninja_cwd;
+		}
+
 		void generate(lua::output const& out, FILE* file)
 		{
+			char*  cwd = get_ninja_cwd();
 			char** objs = collect_objs(out);
 			for (uint32_t i {0}; i < out.sources_size; ++i)
 			{
-				fprintf(file, "build obj/%s/%s: cxx ../%s\n", out.name, objs[i],
+				fprintf(file, "build obj/%s/%s: cxx %s/%s\n", out.name, objs[i], cwd,
 				        out.sources[i].file);
 				fprintf(file, "    cxxflags = %s\n",
 				        out.sources[i].compile_options ? out.sources[i].compile_options
@@ -248,6 +262,7 @@ namespace gen
 			for (uint32_t i {0}; i < out.sources_size; ++i)
 				tfree(objs[i]);
 			tfree(objs);
+			tfree(cwd);
 		}
 	} // namespace
 
@@ -270,7 +285,7 @@ namespace gen
     description = Compiling ${in}
     deps = gcc
     depfile = ${out}.d
-    command = clang++ ${cxxflags} -MMD -MF ${out}.d -c ${in} -o ${out}
+    command = clang++ -fcolor-diagnostics -fansi-escape-codes ${cxxflags} -MMD -MF ${out}.d -c ${in} -o ${out}
 
 rule lib
     description = Creating ${out}
@@ -329,6 +344,7 @@ rule link
 
 		if (g.gen_compile_db)
 			generate_db(outputs, outputs_size);
+
 		for (uint32_t i {0}; i < outputs_size; ++i)
 			generate(outputs[i], file);
 		for (uint32_t i {0}; i < outputs_size; ++i)

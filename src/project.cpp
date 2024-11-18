@@ -127,7 +127,10 @@ namespace prj
 			for (uint32_t i {0}; i < in.compile_options_size; ++i)
 				compile_options_str_size += strlen(in.compile_options[i]) + 1;
 			for (uint32_t i {0}; i < in.includes_size; ++i)
-				compile_options_str_size += strlen(in.includes[i]) + 5 /*-I + ""*/;
+				if (fs::is_absolute(in.includes[i]))
+					compile_options_str_size += strlen(in.includes[i]) + 5 /*-I + ""*/;
+				else
+					compile_options_str_size += strlen(in.includes[i]) + 8 /*-I + "../"*/;
 
 			char*    compile_options = tmalloc<char>(compile_options_str_size);
 			uint32_t pos {0};
@@ -146,8 +149,16 @@ namespace prj
 			for (uint32_t i {0}; i < in.includes_size; ++i)
 			{
 				uint32_t len {static_cast<uint32_t>(strlen(in.includes[i]))};
-				strncpy(compile_options + pos, "-I\"", 3);
-				pos += 3;
+				if (fs::is_absolute(in.includes[i]))
+				{
+					strncpy(compile_options + pos, "-I\"", 3);
+					pos += 3;
+				}
+				else
+				{
+					strncpy(compile_options + pos, "-I\"../", 6);
+					pos += 6;
+				}
 				strncpy(compile_options + pos, in.includes[i], len);
 				pos += len;
 				if (i < in.includes_size - 1)
@@ -163,13 +174,6 @@ namespace prj
 			}
 			compile_options[compile_options_str_size - 1] = '\0';
 			out.compile_options = compile_options;
-		}
-
-		if (in.includes_size)
-		{
-			uint32_t includes_str_size {0};
-			for (uint32_t i {0}; i < in.includes_size; ++i)
-				includes_str_size += strlen(in.includes[i]) + 5 /*-I + ""*/;
 		}
 
 		if (in.link_options_size)
