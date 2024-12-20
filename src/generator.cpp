@@ -96,7 +96,11 @@ namespace gen
 				for (uint32_t j {0}; j < outs[i].sources_size; ++j)
 				{
 					fwrite("	{\n", 1, 3, file);
+#ifdef _WIN32
 					fprintf(file, "		\"directory\": \"%s\\\\build\",\n", unesc_cwd);
+#elif defined(__linux__)
+					fprintf(file, "		\"directory\": \"%s/build\",\n", unesc_cwd);
+#endif
 					char* unesc_options =
 						unesc_str(outs[i].sources[j].compile_options
 					                  ? outs[i].sources[j].compile_options
@@ -307,7 +311,7 @@ namespace gen
     description = Compiling ${in}
     deps = gcc
     depfile = ${out}.d
-    command = clang++ -fcolor-diagnostics -fansi-escape-codes ${cxxflags} -MMD -MF ${out}.d -c ${in} -o ${out}
+    command = clang++ -fcolor-diagnostics -fansi-escape-codes -fdiagnostics-absolute-paths ${cxxflags} -MMD -MF ${out}.d -c ${in} -o ${out}
 
 rule lib
     description = Creating ${out}
