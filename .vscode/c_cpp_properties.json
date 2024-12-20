@@ -1,21 +1,39 @@
 {
-    "configurations": [
-        {
-            "name": "Win32",
-            "includePath": [
-                "${workspaceFolder}/src/*",
-                "${workspaceFolder}/deps/*"
-            ],
-            "defines": [
-                "_DEBUG",
-                "UNICODE",
-                "_UNICODE"
-            ],
-            "windowsSdkVersion": "10.0.22621.0",
+	"configurations": [
+		{
+			"name": "Win32",
+			"includePath": [
+				"${workspaceFolder}/src/*",
+				"${workspaceFolder}/deps/*"
+			],
+			"defines": [
+				"_DEBUG",
+				"UNICODE",
+				"_UNICODE"
+			],
+			"windowsSdkVersion": "10.0.22621.0",
 			"cppStandard": "c++20",
-            "intelliSenseMode": "windows-clang-x64",
-			"compilerArgs": ["-Wall", "-Wextra"]
-        }
-    ],
-    "version": 4
+			"compilerPath": "C:\\Dev\\LLVM\\bin\\clang++.exe",
+			"intelliSenseMode": "windows-clang-x64",
+			"compilerArgs": [
+				"-Wall",
+				"-Wextra"
+			]
+		},
+		{
+			"name": "Linux",
+			"includePath": [
+				"${workspaceFolder}/src/*",
+				"${workspaceFolder}/deps/*"
+			],
+			"cppStandard": "c++20",
+			"compilerPath": "/usr/bin/clang++",
+			"intelliSenseMode": "linux-clang-x64",
+			"compilerArgs": [
+				"-Wall",
+				"-Wextra"
+			]
+		}
+	],
+	"version": 4
 }

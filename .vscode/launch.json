@@ -36,6 +36,39 @@
 			"environment": [],
 			"console": "integratedTerminal",
 			"preLaunchTask": "build"
+		},
+		{
+			"name": "(Linux) Launch debug",
+			"type": "cppdbg",
+			"request": "launch",
+			"program": "${workspaceFolder}/bin/mingen",
+			"args": [
+				"-d",
+				"tests"
+			],
+			"stopAtEntry": false,
+			"cwd": "${workspaceFolder}",
+			"environment": [],
+			// "console": "integratedTerminal",
+			"preLaunchTask": "build"
+		},
+		{
+			"name": "(Linux) Launch release",
+			"type": "cppdbg",
+			"request": "launch",
+			"program": "${workspaceFolder}/bin/mingen",
+			"args": [
+				"-d",
+				"tests",
+				"-c",
+				"release",
+				"--compile-db"
+			],
+			"stopAtEntry": false,
+			"cwd": "${workspaceFolder}",
+			"environment": [],
+			// "console": "integratedTerminal",
+			"preLaunchTask": "build"
 		}
 	]
 }

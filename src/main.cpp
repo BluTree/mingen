@@ -5,7 +5,6 @@
 #include "string.hpp"
 
 #include <stdio.h>
-#include <win32/io.h>
 
 mingen_state g {};
 
@@ -156,10 +155,7 @@ int main(int argc, char** argv)
 	}
 
 	if (dir)
-	{
-		STACK_CHAR_TO_WCHAR(dir, wdir);
-		SetCurrentDirectoryW(wdir);
-	}
+		fs::set_cwd(dir);
 
 	lua::create();
 	if (!fs::file_exists(file))

@@ -6,6 +6,8 @@
 #include <string.h>
 
 #include <stdint.h>
+
+#ifdef _WIN32
 #include <win32/misc.h>
 
 #define STACK_WCHAR_TO_CHAR(wbuf, buf)                                                   \
@@ -35,6 +37,7 @@
 
 uint32_t char_len(wchar_t const* wbuf);
 uint32_t wchar_len(char const* buf);
+#endif
 
 namespace str
 {

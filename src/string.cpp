@@ -4,6 +4,7 @@
 
 #include <string.h>
 
+#ifdef _WIN32
 [[nodiscard]] char* wchar_to_char(wchar_t const* wbuf)
 {
 	size_t wlen = wcslen(wbuf);
@@ -38,6 +39,7 @@ uint32_t wchar_len(char const* buf)
 {
 	return MultiByteToWideChar(CP_UTF8, 0, buf, strlen(buf), nullptr, 0);
 }
+#endif
 
 namespace str
 {

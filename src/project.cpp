@@ -39,13 +39,14 @@ namespace prj
 			if (files.size)
 				tfree(files.files);
 
+			// TODO Remove * character at the end, because it's only win32
 			fs::list_dirs_res sub_dirs = fs::list_dirs(dir_filter);
 			for (uint32_t i {0}; i < sub_dirs.size; ++i)
 			{
 				uint32_t dir_len = static_cast<uint32_t>(strlen(sub_dirs.dirs[i]));
-				char*    filter = tmalloc<char>(dir_len + 3);
+				char*    filter = tmalloc<char>(dir_len + 2);
 				strcpy(filter, sub_dirs.dirs[i]);
-				strcpy(filter + dir_len, "/*");
+				strcpy(filter + dir_len, "/");
 				fill_sources(filter, file_filter, out);
 
 				tfree(filter);
@@ -74,17 +75,17 @@ namespace prj
 
 			if ((pos = str::find(in.sources[i], "**", source_len)) != UINT32_MAX)
 			{
-				char* filter = tmalloc<char>(pos + 2);
-				strncpy(filter, in.sources[i], pos + 1);
-				filter[pos + 1] = '\0';
+				char* filter = tmalloc<char>(pos + 1);
+				strncpy(filter, in.sources[i], pos);
+				filter[pos] = '\0';
 				fill_sources(filter, in.sources[i] + pos + 2, out);
 				tfree(filter);
 			}
 			else if ((pos = str::find(in.sources[i], "*", source_len)) != UINT32_MAX)
 			{
-				char* filter = tmalloc<char>(pos + 2);
-				strncpy(filter, in.sources[i], pos + 1);
-				filter[pos + 1] = '\0';
+				char* filter = tmalloc<char>(pos + 1);
+				strncpy(filter, in.sources[i], pos);
+				filter[pos] = '\0';
 				fs::list_files_res files =
 					fs::list_files(filter, in.sources[i] + pos + 1);
 				if (out.sources_capacity < out.sources_size + files.size)

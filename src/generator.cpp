@@ -184,12 +184,16 @@ namespace gen
 		char* get_ninja_cwd()
 		{
 			char* cwd = fs::get_cwd();
+#ifdef _WIN32
 			char* ninja_cwd = tmalloc<char>(strlen(cwd) + 2);
 			ninja_cwd[0] = cwd[0];
 			ninja_cwd[1] = '$';
 			strcpy(ninja_cwd + 2, cwd + 1);
 			tfree(cwd);
 			return ninja_cwd;
+#elif defined(__linux__)
+			return cwd;
+#endif
 		}
 
 		void generate(lua::output const& out, FILE* file)
@@ -209,7 +213,11 @@ namespace gen
 			{
 				case lua::project_type::executable:
 				{
+#ifdef _WIN32
 					fprintf(file, "build bin/%s.exe: link ", out.name);
+#elif defined(__linux__)
+					fprintf(file, "build bin/%s: link ", out.name);
+#endif
 					for (uint32_t i {0}; i < out.sources_size; ++i)
 						fprintf(file, "obj/%s/%s ", out.name, objs[i]);
 
@@ -219,12 +227,22 @@ namespace gen
 						fprintf(file, "\n    lflags = %s\n\n", out.link_options);
 					else
 						fwrite("\n\n", 1, 2, file);
+#ifdef _WIN32
 					fprintf(file, "build %s: phony bin/%s.exe\n\n", out.name, out.name);
+#elif defined(__linux__)
+					fprintf(file, "build %s: phony bin/%s\n\n", out.name, out.name);
+#endif
 					break;
 				}
+				// TODO Verify implementation, to put static export library in lib, not
+				// bin
 				case lua::project_type::shared_library:
 				{
+#ifdef _WIN32
 					fprintf(file, "build bin/%s.dll: link ", out.name);
+#elif defined(__linux__)
+					fprintf(file, "build bin/%s.so: link ", out.name);
+#endif
 					for (uint32_t i {0}; i < out.sources_size; ++i)
 						fprintf(file, "obj/%s ", objs[i]);
 
@@ -274,6 +292,10 @@ namespace gen
 
 		// TODO create fs::open_file / fs::close_file
 		// TODO allow customizing output directory
+
+		if (!fs::dir_exists("build/"))
+			fs::create_dir("build/");
+
 		FILE* file = fopen("build/build.ninja", "w");
 
 		if (!file)

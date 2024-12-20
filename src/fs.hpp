@@ -40,13 +40,30 @@ namespace fs
 	/// @return false File doesn't exist.
 	bool file_exists(char const* file);
 
+	/// @brief Verifies `dir` presence in the filesystem.
+	/// @param file String pointing to the directory to verify. The directory path is
+	/// verified as is, meaning it will use current working directory for relative path.
+	/// @return true Directory exists.
+	/// @return false Directory doesn't exist.
+	bool dir_exists(char const* dir);
+
 	/// @brief Gets the current working directory.
 	/// @return char* The working directory as a full path.
 	char* get_cwd();
+
+	/// @brief Sets the current working directory.
+	/// @param cwd The current working directory.
+	void set_cwd(char const* cwd);
 
 	/// @brief Checks if the path is absolute.
 	/// @param path The path to check.
 	/// @return true Path is absolute.
 	/// @return false Path is relative.
 	bool is_absolute(char const* path);
+
+	/// @brief Creates a directory. Doesn't create directories recursively.
+	/// @param path Path to the directory to create.
+	/// @return true Directory created.
+	/// @return false Directory not created.
+	bool create_dir(char const* path);
 }; // namespace fs
