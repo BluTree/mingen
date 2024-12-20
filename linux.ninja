@@ -15,9 +15,9 @@ rule link
     command = clang++ ${in} -o ${out} -fuse-ld=ld ${lflags}
 
 # default flags
-cxxflags = -g -isystem"deps" --std=c++20 -Wno-deprecated-declarations
-cflags = -g -isystem"deps"
-lflags = -g
+cxxflags = -g -O2 -isystem"deps" --std=c++20 -Wno-deprecated-declarations
+cflags = -g -O2 -isystem"deps"
+lflags = -g -O2
 
 # asan, uncomment to enable
 # cxxflags = -g -isystem"deps" --std=c++20 -Wno-deprecated-declarations -fsanitize=address
