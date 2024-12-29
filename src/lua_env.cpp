@@ -55,6 +55,18 @@ namespace lua
 				g.config_param = g.configs[0];
 			return 0;
 		}
+
+		int32_t platform(lua_State* L)
+		{
+#ifdef _WIN32
+			lua_pushliteral(L, "windows");
+#elif defined(__linux__)
+			lua_pushliteral(L, "linux");
+#else
+			luaL_error(L, "Unknown platform");
+#endif
+			return 1;
+		}
 	} // namespace
 
 	void create()
@@ -82,6 +94,9 @@ namespace lua
 
 		lua_pushcclosure(L, configurations, 0);
 		lua_setfield(L, -2, "configurations");
+
+		lua_pushcclosure(L, platform, 0);
+		lua_setfield(L, -2, "platform");
 
 		lua_setglobal(L, "mg");
 

@@ -176,7 +176,7 @@ namespace fs
 			if (entry->d_type == DT_DIR && strcmp(entry->d_name, ".") != 0 &&
 			    strcmp(entry->d_name, "..") != 0)
 			{
-				dirs[i] = tmalloc<char>(strlen(dir_filter) + strlen(entry->d_name));
+				dirs[i] = tmalloc<char>(strlen(dir_filter) + strlen(entry->d_name) + 1);
 				strncpy(dirs[i], dir_filter, strlen(dir_filter));
 				strcpy(dirs[i] + strlen(dir_filter), entry->d_name);
 				++i;
@@ -211,7 +211,7 @@ namespace fs
 		{
 			if (entry->d_type == DT_REG && str::ends_with(entry->d_name, file_filter))
 			{
-				files[i] = tmalloc<char>(strlen(dir_filter) + strlen(entry->d_name));
+				files[i] = tmalloc<char>(strlen(dir_filter) + strlen(entry->d_name) + 1);
 				strncpy(files[i], dir_filter, strlen(dir_filter));
 				strcpy(files[i] + strlen(dir_filter), entry->d_name);
 				++i;
@@ -241,7 +241,8 @@ namespace fs
 
 	void set_cwd(char const* cwd)
 	{
-		chdir(cwd);
+		int res = chdir(cwd);
+		printf("res: %i\n", res);
 	}
 
 	bool is_absolute(char const* path)
