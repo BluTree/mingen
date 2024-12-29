@@ -242,7 +242,6 @@ namespace fs
 	void set_cwd(char const* cwd)
 	{
 		int res = chdir(cwd);
-		printf("res: %i\n", res);
 	}
 
 	bool is_absolute(char const* path)
