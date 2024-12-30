@@ -19,7 +19,12 @@ namespace fs
 	list_dirs_res list_dirs(char const* dir_filter)
 	{
 		uint32_t dirs_count {0};
-		STACK_CHAR_TO_WCHAR(dir_filter, wdir)
+		STACK_CHAR_TO_WCHAR(dir_filter, wdir_tmp)
+		uint32_t tmp_len = wcslen(wdir_tmp);
+		wchar_t* wdir = tmalloc<wchar_t>(tmp_len + 2);
+		memcpy(wdir, wdir_tmp, tmp_len);
+		wdir[tmp_len] = L'*';
+		wdir[tmp_len + 1] = L'\0';
 
 		WIN32_FIND_DATAW entry_data;
 
@@ -27,7 +32,10 @@ namespace fs
 		                                FindExSearchNameMatch, nullptr, 0);
 
 		if (entry == INVALID_HANDLE_VALUE)
+		{
+			tfree(wdir);
 			return {nullptr, 0};
+		}
 
 		do
 		{
@@ -41,7 +49,10 @@ namespace fs
 		while (FindNextFileW(entry, &entry_data) != 0);
 
 		if (!dirs_count)
+		{
+			tfree(wdir);
 			return {nullptr, 0};
+		}
 
 		char**   dirs {tmalloc<char*>(dirs_count)};
 		uint32_t i {0};
@@ -61,19 +72,29 @@ namespace fs
 			}
 		}
 		while (FindNextFileW(entry, &entry_data) != 0);
+
+		tfree(wdir);
 		return {dirs, dirs_count};
 	}
 
 	list_files_res list_files(char const* dir_filter, char const* file_filter)
 	{
 		uint32_t files_count {0};
-		STACK_CHAR_TO_WCHAR(dir_filter, wdir)
+		STACK_CHAR_TO_WCHAR(dir_filter, wdir_tmp)
+		uint32_t tmp_len = wcslen(wdir_tmp);
+		wchar_t* wdir = tmalloc<wchar_t>(tmp_len + 2);
+		memcpy(wdir, wdir_tmp, tmp_len);
+		wdir[tmp_len] = L'*';
+		wdir[tmp_len + 1] = L'\0';
 
 		WIN32_FIND_DATAW entry_data;
 		HANDLE           entry = FindFirstFileExW(wdir, FindExInfoBasic, &entry_data,
 		                                          FindExSearchNameMatch, nullptr, 0);
 		if (entry == INVALID_HANDLE_VALUE)
+		{
+			tfree(wdir);
 			return {nullptr, 0};
+		}
 
 		do
 		{
@@ -87,7 +108,10 @@ namespace fs
 		while (FindNextFileW(entry, &entry_data) != 0);
 
 		if (!files_count)
+		{
+			tfree(wdir);
 			return {nullptr, 0};
+		}
 
 		char**   files {tmalloc<char*>(files_count)};
 		uint32_t i = 0;
@@ -106,6 +130,8 @@ namespace fs
 			}
 		}
 		while (FindNextFileW(entry, &entry_data) != 0);
+
+		tfree(wdir);
 		return {files, files_count};
 	}
 
