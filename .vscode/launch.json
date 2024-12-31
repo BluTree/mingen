@@ -17,7 +17,7 @@
 			"cwd": "${workspaceFolder}",
 			"environment": [],
 			"console": "integratedTerminal",
-			"preLaunchTask": "build"
+			"preLaunchTask": "build windows"
 		},
 		{
 			"name": "(Windows) Launch release",
@@ -35,7 +35,7 @@
 			"cwd": "${workspaceFolder}",
 			"environment": [],
 			"console": "integratedTerminal",
-			"preLaunchTask": "build"
+			"preLaunchTask": "build windows"
 		},
 		{
 			"name": "(Linux) Launch debug",
@@ -50,7 +50,7 @@
 			"cwd": "${workspaceFolder}",
 			"environment": [],
 			// "console": "integratedTerminal",
-			"preLaunchTask": "build"
+			"preLaunchTask": "build linux"
 		},
 		{
 			"name": "(Linux) Launch release",
@@ -68,7 +68,7 @@
 			"cwd": "${workspaceFolder}",
 			"environment": [],
 			// "console": "integratedTerminal",
-			"preLaunchTask": "build"
+			"preLaunchTask": "build linux"
 		}
 	]
 }

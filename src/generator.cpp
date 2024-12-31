@@ -311,7 +311,7 @@ namespace gen
     description = Compiling ${in}
     deps = gcc
     depfile = ${out}.d
-    command = clang++ -fcolor-diagnostics -fansi-escape-codes -fdiagnostics-absolute-paths ${cxxflags} -MMD -MF ${out}.d -c ${in} -o ${out}
+    command = clang++ -fdiagnostics-absolute-paths -fcolor-diagnostics -fansi-escape-codes -fdiagnostics-absolute-paths ${cxxflags} -MMD -MF ${out}.d -c ${in} -o ${out}
 
 rule lib
     description = Creating ${out}

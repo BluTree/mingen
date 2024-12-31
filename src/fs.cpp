@@ -22,7 +22,7 @@ namespace fs
 		STACK_CHAR_TO_WCHAR(dir_filter, wdir_tmp)
 		uint32_t tmp_len = wcslen(wdir_tmp);
 		wchar_t* wdir = tmalloc<wchar_t>(tmp_len + 2);
-		memcpy(wdir, wdir_tmp, tmp_len);
+		wcsncpy(wdir, wdir_tmp, tmp_len);
 		wdir[tmp_len] = L'*';
 		wdir[tmp_len + 1] = L'\0';
 
@@ -65,9 +65,9 @@ namespace fs
 			    wcscmp(entry_data.cFileName, L"..") != 0)
 			{
 				STACK_WCHAR_TO_CHAR(entry_data.cFileName, dn)
-				dirs[i] = tmalloc<char>(strlen(dir_filter) - 1 + strlen(dn) + 1);
-				strncpy(dirs[i], dir_filter, strlen(dir_filter) - 1);
-				strcpy(dirs[i] + strlen(dir_filter) - 1, dn);
+				dirs[i] = tmalloc<char>(strlen(dir_filter) + strlen(dn) + 1);
+				strncpy(dirs[i], dir_filter, strlen(dir_filter));
+				strcpy(dirs[i] + strlen(dir_filter), dn);
 				++i;
 			}
 		}
@@ -83,7 +83,7 @@ namespace fs
 		STACK_CHAR_TO_WCHAR(dir_filter, wdir_tmp)
 		uint32_t tmp_len = wcslen(wdir_tmp);
 		wchar_t* wdir = tmalloc<wchar_t>(tmp_len + 2);
-		memcpy(wdir, wdir_tmp, tmp_len);
+		wcsncpy(wdir, wdir_tmp, tmp_len);
 		wdir[tmp_len] = L'*';
 		wdir[tmp_len + 1] = L'\0';
 
@@ -123,9 +123,9 @@ namespace fs
 			if (!(entry_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
 			    str::ends_with(fn, file_filter))
 			{
-				files[i] = tmalloc<char>(strlen(dir_filter) - 1 + strlen(fn) + 1);
-				strncpy(files[i], dir_filter, strlen(dir_filter) - 1);
-				strcpy(files[i] + strlen(dir_filter) - 1, fn);
+				files[i] = tmalloc<char>(strlen(dir_filter) + strlen(fn) + 1);
+				strncpy(files[i], dir_filter, strlen(dir_filter));
+				strcpy(files[i] + strlen(dir_filter), fn);
 				++i;
 			}
 		}
@@ -172,7 +172,7 @@ namespace fs
 	bool create_dir(char const* path)
 	{
 		STACK_CHAR_TO_WCHAR(path, wpath);
-		return CreateDirectoryW(wpath);
+		return CreateDirectoryW(wpath, nullptr);
 	}
 #elif defined(__linux__)
 	list_dirs_res list_dirs(char const* dir_filter)
