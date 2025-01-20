@@ -7,6 +7,7 @@
 #include "mem.hpp"
 #include "project.hpp"
 #include "state.hpp"
+#include "string.hpp"
 
 namespace lua
 {
@@ -67,6 +68,17 @@ namespace lua
 #endif
 			return 1;
 		}
+
+		int32_t need_generate(lua_State* L)
+		{
+			lua_Debug info;
+			lua_getstack(L, 1, &info);
+			lua_getinfo(L, "Sl", &info);
+
+			lua_pushboolean(L, strcmp(g.file, info.short_src) == 0);
+
+			return 1;
+		}
 	} // namespace
 
 	void create()
@@ -89,6 +101,7 @@ namespace lua
 		}
 		lua_setfield(L, -2, "project_type");
 
+		// TODO register generate (overwrite), run generator after lua file
 		lua_pushcclosure(L, gen::ninja_generator, 0);
 		lua_setfield(L, -2, "generate");
 
@@ -97,6 +110,9 @@ namespace lua
 
 		lua_pushcclosure(L, platform, 0);
 		lua_setfield(L, -2, "platform");
+
+		lua_pushcclosure(L, need_generate, 0);
+		lua_setfield(L, -2, "need_generate");
 
 		lua_setglobal(L, "mg");
 
@@ -116,11 +132,14 @@ namespace lua
 
 	int32_t run_file(char const* filename)
 	{
+		g.file = filename;
 		if (luaL_dofile(g.L, filename))
 		{
 			printf("%s", lua_tostring(g.L, -1));
+			g.file = nullptr;
 			return 1;
 		}
+		g.file = nullptr;
 
 		return 0;
 	}

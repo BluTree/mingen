@@ -39,7 +39,6 @@ namespace prj
 			if (files.size)
 				tfree(files.files);
 
-			// TODO Remove * character at the end, because it's only win32
 			fs::list_dirs_res sub_dirs = fs::list_dirs(dir_filter);
 			for (uint32_t i {0}; i < sub_dirs.size; ++i)
 			{
@@ -66,6 +65,25 @@ namespace prj
 		out.name = in.name;
 		in.name = nullptr;
 
+		lua_Debug info;
+		lua_getstack(L, 1, &info);
+		lua_getinfo(L, "Sl", &info);
+		// printf("info = %s\n", info.source);
+		char*    base_path = nullptr;
+		uint32_t base_path_size = 0;
+		if (str::starts_with(info.short_src, "./") ||
+		    str::starts_with(info.short_src, ".\\"))
+		{
+			base_path_size = str::rfind(info.short_src, "/");
+			if (base_path_size != UINT32_MAX)
+			{
+				base_path = info.short_src + 2;
+				base_path_size -= 1;
+			}
+			else
+				base_path_size = 0;
+		}
+
 		out.type = in.type;
 
 		for (uint32_t i {0}; i < in.sources_size; ++i)
@@ -73,19 +91,21 @@ namespace prj
 			uint32_t source_len {static_cast<uint32_t>(strlen(in.sources[i]))};
 			uint32_t pos {UINT32_MAX};
 
-			if ((pos = str::find(in.sources[i], "**", source_len)) != UINT32_MAX)
+			if ((pos = str::rfind(in.sources[i], "**", source_len)) != UINT32_MAX)
 			{
-				char* filter = tmalloc<char>(pos + 1);
-				strncpy(filter, in.sources[i], pos);
-				filter[pos] = '\0';
+				char* filter = tmalloc<char>(base_path_size + pos + 1);
+				strncpy(filter, base_path, base_path_size);
+				strncpy(filter + base_path_size, in.sources[i], pos);
+				filter[base_path_size + pos] = '\0';
 				fill_sources(filter, in.sources[i] + pos + 2, out);
 				tfree(filter);
 			}
-			else if ((pos = str::find(in.sources[i], "*", source_len)) != UINT32_MAX)
+			else if ((pos = str::rfind(in.sources[i], "*", source_len)) != UINT32_MAX)
 			{
-				char* filter = tmalloc<char>(pos + 1);
-				strncpy(filter, in.sources[i], pos);
-				filter[pos] = '\0';
+				char* filter = tmalloc<char>(base_path_size + pos + 1);
+				strncpy(filter, base_path, base_path_size);
+				strncpy(filter + base_path_size, in.sources[i], pos);
+				filter[base_path_size + pos] = '\0';
 				fs::list_files_res files =
 					fs::list_files(filter, in.sources[i] + pos + 1);
 				if (out.sources_capacity < out.sources_size + files.size)
@@ -104,6 +124,7 @@ namespace prj
 				if (files.size)
 					tfree(files.files);
 			}
+			// TODO add base_path to check file
 			else if (fs::file_exists(in.sources[i]))
 			{
 				if (out.sources_capacity < out.sources_size + 1)
@@ -131,7 +152,8 @@ namespace prj
 				if (fs::is_absolute(in.includes[i]))
 					compile_options_str_size += strlen(in.includes[i]) + 5 /*-I + ""*/;
 				else
-					compile_options_str_size += strlen(in.includes[i]) + 8 /*-I + "../"*/;
+					compile_options_str_size +=
+						base_path_size + strlen(in.includes[i]) + 8 /*-I + "../"*/;
 
 			char*    compile_options = tmalloc<char>(compile_options_str_size);
 			uint32_t pos {0};
@@ -159,6 +181,11 @@ namespace prj
 				{
 					strncpy(compile_options + pos, "-I\"../", 6);
 					pos += 6;
+				}
+				if (base_path_size)
+				{
+					strncpy(compile_options + pos, base_path, base_path_size);
+					pos += base_path_size;
 				}
 				strncpy(compile_options + pos, in.includes[i], len);
 				pos += len;

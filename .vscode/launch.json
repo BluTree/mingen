@@ -11,7 +11,8 @@
 			"program": "${workspaceFolder}/bin/mingen.exe",
 			"args": [
 				"-d",
-				"tests"
+				"tests",
+				"--compile-db"
 			],
 			"stopAtEntry": false,
 			"cwd": "${workspaceFolder}",

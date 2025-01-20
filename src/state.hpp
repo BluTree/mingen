@@ -11,7 +11,8 @@ extern "C"
 
 struct mingen_state
 {
-	lua_State* L {nullptr};
+	lua_State*  L {nullptr};
+	char const* file;
 
 	char const*  config_param {nullptr};
 	char const** configs {nullptr};
