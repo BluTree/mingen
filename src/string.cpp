@@ -52,7 +52,7 @@ namespace str
 			buf_len = static_cast<uint32_t>(strlen(buf));
 
 		uint32_t res {UINT32_MAX};
-		for (uint32_t i {0}; i < str_len - buf_len; ++i)
+		for (uint32_t i {0}; i < str_len - buf_len + 1; ++i)
 		{
 			if (str[i] == buf[0] && strncmp(str + i, buf, buf_len) == 0)
 			{

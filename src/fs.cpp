@@ -100,7 +100,7 @@ namespace fs
 		{
 			STACK_WCHAR_TO_CHAR(entry_data.cFileName, fn)
 			if (!(entry_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
-			    str::ends_with(fn, file_filter))
+			    (!file_filter || str::ends_with(fn, file_filter)))
 			{
 				++files_count;
 			}
@@ -121,7 +121,7 @@ namespace fs
 		{
 			STACK_WCHAR_TO_CHAR(entry_data.cFileName, fn)
 			if (!(entry_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
-			    str::ends_with(fn, file_filter))
+			    (!file_filter || str::ends_with(fn, file_filter)))
 			{
 				files[i] = tmalloc<char>(strlen(dir_filter) + strlen(fn) + 1);
 				strncpy(files[i], dir_filter, strlen(dir_filter));
@@ -153,8 +153,8 @@ namespace fs
 
 	char* get_cwd()
 	{
-		wchar_t  wcwd[512];
-		uint32_t len = GetCurrentDirectoryW(512, wcwd);
+		wchar_t wcwd[512];
+		GetCurrentDirectoryW(512, wcwd);
 		return wchar_to_char(wcwd);
 	}
 
@@ -173,6 +173,55 @@ namespace fs
 	{
 		STACK_CHAR_TO_WCHAR(path, wpath);
 		return CreateDirectoryW(wpath, nullptr);
+	}
+
+	bool delete_dir(char const* path)
+	{
+		list_files_res files = list_files(path, nullptr);
+		bool           success = true;
+		for (uint32_t i {0}; i < files.size; ++i)
+		{
+			success &= delete_file(files.files[i]);
+			tfree(files.files[i]);
+		}
+		tfree(files.files);
+
+		if (!success)
+			return false;
+
+		auto [dirs, dirs_size] = list_dirs(path);
+		for (uint32_t i {0}; i < dirs_size; ++i)
+		{
+			char* delete_dir = tmalloc<char>(strlen(dirs[i]) + 2);
+			strcpy(delete_dir, dirs[i]);
+			strcpy(delete_dir + strlen(dirs[i]), "/");
+
+			fs::delete_dir(delete_dir);
+			tfree(delete_dir);
+			tfree(dirs[i]);
+		}
+		tfree(dirs);
+
+		if (!success)
+			return false;
+
+		STACK_CHAR_TO_WCHAR(path, wpath);
+		success &= RemoveDirectoryW(wpath) != 0;
+
+		return success;
+	}
+
+	bool delete_file(char const* path)
+	{
+		STACK_CHAR_TO_WCHAR(path, wpath);
+		return DeleteFileW(wpath) != 0;
+	}
+
+	bool move(char* const src_path, char* const dst_path)
+	{
+		STACK_CHAR_TO_WCHAR(src_path, wsrc_path);
+		STACK_CHAR_TO_WCHAR(dst_path, wdst_path);
+		return MoveFileW(wsrc_path, wdst_path) != 0;
 	}
 #elif defined(__linux__)
 	list_dirs_res list_dirs(char const* dir_filter)

@@ -329,6 +329,7 @@ rule link
 		uint32_t     outputs_size = 0;
 		uint32_t     outputs_capacity = len;
 
+		// TODO detect correctly deps written
 		for (uint32_t i {0}; i < len; ++i)
 		{
 			lua_rawgeti(L, 1, 1);

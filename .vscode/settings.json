@@ -4,6 +4,8 @@
 		"deps/**": true
 	},
 	"files.associations": {
+		"*.sln": "xml",
+		"log": "log",
 		"vcruntime_string.h": "c",
 		"vcruntime.h": "c",
 		"sal.h": "c",
@@ -12,6 +14,7 @@
 		"__stdarg___va_copy.h": "c",
 		"__stdarg_va_arg.h": "c",
 		"__stdarg_va_list.h": "c",
+		"xutility": "cpp"
 	},
 	"cSpell.words": [
 		"tfree",

@@ -4,6 +4,7 @@ require("deps/mingen")
 
 -- mg.dir("build")
 
+print("build_dir main: " .. mg.get_build_dir())
 
 local prj_exe = mg.project({
 	name = "exe",
@@ -11,7 +12,7 @@ local prj_exe = mg.project({
 	sources = {"src/exe/**.cc"},
 	includes = {"src/lib"},
 	compile_options = {"-g", "-Wall"},
-	dependencies = {prj_lib}
+	dependencies = {prj_lib, glfw}
 })
 
 if mg.need_generate() then

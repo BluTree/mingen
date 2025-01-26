@@ -15,20 +15,20 @@ rule link
     command = clang++ ${in} -o ${out} -fuse-ld=lld ${lflags}
 
 # default flags
-cxxflags = -g -O2 -isystem"deps" --std=c++20 -Wno-deprecated-declarations
-cflags = -g -O2 -isystem"deps"
-lflags = -g -O2 -lmsvcrt.lib -lkernel32.lib
+cxxflags = -g -O0 -isystem"deps" --std=c++20 -Wno-deprecated-declarations
+cflags = -g -O0 -isystem"deps"
+lflags = -g -O0-lmsvcrt.lib -lkernel32.lib -lwininet.lib -L"deps/minizip/lib/windows" -lbzip2.lib -llzma.lib -lminizip.lib -lz-ng.lib -lzstd_static.lib -lbcrypt.lib
 
 # asan, uncomment to enable
+# TODO not working anymore with minizip lib. Temporary workaround : don't link with minizip (please help)
 # cxxflags = -g -isystem"deps" --std=c++20 -Wno-deprecated-declarations -fsanitize=address
 # cflags = -g -isystem"deps"
-# lflags = -fsanitize=address -g -lkernel32.lib
-
-
+# lflags = -fsanitize=address -g -lkernel32.lib -lwininet.lib
 
 build obj/fs.o: cxx src/fs.cpp
 build obj/generator.o: cxx src/generator.cpp
 build obj/main.o: cxx src/main.cpp
+build obj/net.o: cxx src/net.cpp
 build obj/project.o: cxx src/project.cpp
 build obj/string.o: cxx src/string.cpp
 build obj/lua_env.o: cxx src/lua_env.cpp
@@ -70,6 +70,7 @@ build bin/mingen.exe: link$
  obj/fs.o $
  obj/generator.o $
  obj/main.o $
+ obj/net.o $
  obj/project.o $
  obj/string.o $
  obj/lua_env.o $

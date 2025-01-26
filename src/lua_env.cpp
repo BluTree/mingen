@@ -5,6 +5,7 @@
 
 #include "generator.hpp"
 #include "mem.hpp"
+#include "net.hpp"
 #include "project.hpp"
 #include "state.hpp"
 #include "string.hpp"
@@ -79,6 +80,53 @@ namespace lua
 
 			return 1;
 		}
+
+		int32_t get_build_dir(lua_State* L)
+		{
+			lua_Debug info;
+			lua_getstack(L, 1, &info);
+			lua_getinfo(L, "Sl", &info);
+
+			uint32_t build_dir_capacity = 6;
+			uint32_t build_dir_size = 0;
+			char*    build_dir = tmalloc<char>(build_dir_capacity /*build/*/ + 1);
+
+			if (str::starts_with(info.short_src, "./") ||
+			    str::starts_with(info.short_src, ".\\"))
+			{
+				uint32_t pos = 2;
+				uint32_t find_pos = 0;
+				while ((find_pos = str::find(info.short_src + pos, "/")) != UINT32_MAX)
+				{
+					if (build_dir_capacity < build_dir_size + 3 /*../*/)
+					{
+						build_dir_capacity += 3;
+						build_dir = trealloc(build_dir, build_dir_capacity + 1);
+					}
+
+					strncpy(build_dir + build_dir_size, "../", 3);
+					build_dir_size += 3;
+
+					pos += find_pos + 1;
+				}
+			}
+
+			if (build_dir_capacity < build_dir_size + 6 /*build/*/)
+			{
+				build_dir_capacity += 6;
+				build_dir = trealloc(build_dir, build_dir_capacity + 1);
+			}
+
+			strncpy(build_dir + build_dir_size, "build/", 6);
+			build_dir_size += 6;
+
+			build_dir[build_dir_size] = '\0';
+
+			lua_pushstring(L, build_dir);
+
+			tfree(build_dir);
+			return 1;
+		}
 	} // namespace
 
 	void create()
@@ -101,7 +149,6 @@ namespace lua
 		}
 		lua_setfield(L, -2, "project_type");
 
-		// TODO register generate (overwrite), run generator after lua file
 		lua_pushcclosure(L, gen::ninja_generator, 0);
 		lua_setfield(L, -2, "generate");
 
@@ -114,7 +161,16 @@ namespace lua
 		lua_pushcclosure(L, need_generate, 0);
 		lua_setfield(L, -2, "need_generate");
 
+		lua_pushcclosure(L, get_build_dir, 0);
+		lua_setfield(L, -2, "get_build_dir");
+
 		lua_setglobal(L, "mg");
+
+		lua_newtable(L);
+		lua_pushcclosure(L, net::download, 0);
+		lua_setfield(L, -2, "download");
+
+		lua_setglobal(L, "net");
 
 		g.L = L;
 	}
@@ -276,6 +332,67 @@ namespace lua
 
 				return true;
 			}
+			else if (strcmp(key, "static_libraries") == 0 &&
+			         in.type == project_type::prebuilt)
+			{
+				if (value_type != LUA_TTABLE)
+					luaL_error(L, "static_libraries: expecting array");
+
+				uint32_t len = lua_rawlen(L, -1);
+				if (!len)
+					return true;
+
+				in.static_libraries =
+					trealloc(in.static_libraries, in.static_libraries_size + len);
+				for (uint32_t i {in.static_libraries_size};
+				     i < in.static_libraries_size + len; ++i)
+				{
+					lua_rawgeti(L, -1, i - in.static_libraries_size + 1);
+					if (lua_isstring(L, -1))
+					{
+						char const* lua_str = lua_tostring(L, -1);
+						char*       str = tmalloc<char>(strlen(lua_str) + 1);
+						strcpy(str, lua_str);
+						in.static_libraries[i] = str;
+					}
+					lua_pop(L, 1);
+				}
+
+				in.static_libraries_size += len;
+
+				return true;
+			}
+			else if (strcmp(key, "static_library_directories") == 0 &&
+			         in.type == project_type::prebuilt)
+			{
+				if (value_type != LUA_TTABLE)
+					luaL_error(L, "static_library_directories: expecting array");
+
+				uint32_t len = lua_rawlen(L, -1);
+				if (!len)
+					return true;
+
+				in.static_library_directories =
+					trealloc(in.static_library_directories,
+				             in.static_library_directories_size + len);
+				for (uint32_t i {in.static_library_directories_size};
+				     i < in.static_library_directories_size + len; ++i)
+				{
+					lua_rawgeti(L, -1, i - in.static_library_directories_size + 1);
+					if (lua_isstring(L, -1))
+					{
+						char const* lua_str = lua_tostring(L, -1);
+						char*       str = tmalloc<char>(strlen(lua_str) + 1);
+						strcpy(str, lua_str);
+						in.static_library_directories[i] = str;
+					}
+					lua_pop(L, 1);
+				}
+
+				in.static_library_directories_size += len;
+
+				return true;
+			}
 
 			return false;
 		}
@@ -290,6 +407,24 @@ namespace lua
 			lua_pushvalue(L, idx);
 		// TODO manually read allowed configs before iterating on table, because lua_next
 		// doesn't order the values in initialisation order
+
+		lua_getfield(L, -1, "type");
+		if (lua_type(L, -1) == LUA_TTABLE)
+		{
+			lua_getfield(L, -1, "__project_type_enum_value");
+			if (lua_isnil(L, -1))
+				luaL_error(L, "type: expecting project_type enum");
+			in.type = static_cast<project_type>(lua_tointeger(L, -1));
+
+			lua_pop(L, 1);
+		}
+		else if (lua_type(L, -1) != LUA_TNIL)
+			luaL_error(L, "type: expecting project_type enum");
+		else
+		{
+			luaL_error(L, "missing key: type");
+		}
+		lua_pop(L, 1);
 
 		lua_pushnil(L);
 
@@ -309,18 +444,6 @@ namespace lua
 			}
 			else if (strcmp(key, "type") == 0)
 			{
-				if (value_type != LUA_TTABLE)
-				{
-					luaL_error(L, "type: expecting project_type enum");
-				}
-				else
-				{
-					lua_getfield(L, -1, "__project_type_enum_value");
-					if (lua_isnil(L, -1))
-						luaL_error(L, "type: expecting project_type enum");
-					in.type = static_cast<project_type>(lua_tointeger(L, -1));
-				}
-				lua_pop(L, 1);
 			}
 			else if (strcmp(key, g.config_param) == 0)
 			{
@@ -367,8 +490,8 @@ namespace lua
 
 		if (!in.name)
 			luaL_error(L, "missing key: name");
-		if (in.type == project_type::count)
-			luaL_error(L, "missing key: type");
+		if (idx != -1)
+			lua_pop(L, 1);
 
 		return in;
 	}
@@ -409,6 +532,22 @@ namespace lua
 			for (uint32_t i {0}; i < in.deps_size; ++i)
 				free_output(in.deps[i]);
 			tfree(in.deps);
+		}
+
+		if (in.static_libraries)
+		{
+			for (uint32_t i {0}; i < in.static_libraries_size; ++i)
+				if (in.static_libraries[i])
+					tfree(in.static_libraries[i]);
+			tfree(in.static_libraries);
+		}
+
+		if (in.static_library_directories)
+		{
+			for (uint32_t i {0}; i < in.static_library_directories_size; ++i)
+				if (in.static_library_directories[i])
+					tfree(in.static_library_directories[i]);
+			tfree(in.static_library_directories);
 		}
 	}
 
@@ -589,6 +728,9 @@ namespace lua
 			}
 			lua_pop(L, 1);
 		}
+
+		if (idx != -1)
+			lua_pop(L, 1);
 
 		return out;
 	}

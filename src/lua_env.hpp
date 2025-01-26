@@ -21,11 +21,12 @@ namespace lua
 		static_library,
 		shared_library,
 		executable,
+		prebuilt,
 		count
 	};
 
 	char const* const project_type_names[] {"sources", "static_library", "shared_library",
-	                                        "executable"};
+	                                        "executable", "prebuilt"};
 
 	struct output;
 
@@ -46,6 +47,14 @@ namespace lua
 
 		char const** link_options;
 		uint32_t     link_options_size;
+
+		// Specific to prebuilt type
+		char const** static_library_directories;
+		uint32_t     static_library_directories_size;
+		char const** static_libraries;
+		uint32_t     static_libraries_size;
+
+		// TODO dynamic_libraries to auto post_build_copy, only for prebuilt_input
 	};
 
 	struct output
@@ -69,6 +78,8 @@ namespace lua
 
 		output*  deps;
 		uint32_t deps_size;
+
+		// TODO dynamic_libraries to auto post_build_copy, only for prebuilt_input
 	};
 
 	input parse_input(lua_State* L, int32_t idx = -1);
