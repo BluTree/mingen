@@ -29,6 +29,7 @@ build obj/fs.o: cxx src/fs.cpp
 build obj/generator.o: cxx src/generator.cpp
 build obj/main.o: cxx src/main.cpp
 build obj/net.o: cxx src/net.cpp
+build obj/os.o: cxx src/os.cpp
 build obj/project.o: cxx src/project.cpp
 build obj/string.o: cxx src/string.cpp
 build obj/lua_env.o: cxx src/lua_env.cpp
@@ -71,6 +72,7 @@ build bin/mingen.exe: link$
  obj/generator.o $
  obj/main.o $
  obj/net.o $
+ obj/os.o $
  obj/project.o $
  obj/string.o $
  obj/lua_env.o $

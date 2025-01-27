@@ -6,6 +6,7 @@
 #include "generator.hpp"
 #include "mem.hpp"
 #include "net.hpp"
+#include "os.hpp"
 #include "project.hpp"
 #include "state.hpp"
 #include "string.hpp"
@@ -133,6 +134,12 @@ namespace lua
 	{
 		lua_State* L = lua_newstate(lua_alloc, nullptr);
 		luaL_openlibs(L);
+
+		lua_getglobal(L, "os");
+		lua_pushcclosure(L, os::execute, 0);
+		lua_setfield(L, -2, "execute");
+		lua_pushcclosure(L, os::copy_file, 0);
+		lua_setfield(L, -2, "copy_file");
 
 		lua_newtable(L);
 

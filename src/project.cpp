@@ -155,7 +155,7 @@ namespace prj
 
 	int new_project(lua_State* L)
 	{
-		luaL_argcheck(L, lua_istable(L, 1), 2, "'table' expected");
+		luaL_argcheck(L, lua_istable(L, 1), 1, "'table' expected");
 		lua::input  in = lua::parse_input(L);
 		lua::output out {0};
 

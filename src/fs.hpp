@@ -73,7 +73,15 @@ namespace fs
 	/// @return false Directory not deleted
 	bool delete_dir(char const* path);
 
-	/// @brief Deletes a file
+	/// @brief Copies a file.
+	/// @param src_path Current, path of the file to copy.
+	/// @param dst_path Path of the file to be copied.
+	/// @param overwrite Allow overwrite if dst_path exists, or not.
+	/// @return true File copied.
+	/// @return false File not copied.
+	bool copy_file(char const* src_path, char const* dst_path, bool overwrite);
+
+	/// @brief Deletes a file.
 	/// @param path Path to the file to delete.
 	/// @return true File deleted.
 	/// @return false File not deleted.

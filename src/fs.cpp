@@ -211,6 +211,13 @@ namespace fs
 		return success;
 	}
 
+	bool copy_file(char const* src_path, char const* dst_path, bool overwrite)
+	{
+		STACK_CHAR_TO_WCHAR(src_path, wsrc_path);
+		STACK_CHAR_TO_WCHAR(dst_path, wdst_path);
+		return CopyFileW(wsrc_path, wdst_path, !overwrite);
+	}
+
 	bool delete_file(char const* path)
 	{
 		STACK_CHAR_TO_WCHAR(path, wpath);
