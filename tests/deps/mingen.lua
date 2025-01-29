@@ -16,7 +16,9 @@ prj_lib = mg.project({
 
 -- glfw_dest_dir = mg.get_build_dir() .. "deps/glfw/"
 -- if net.download("https://github.com/glfw/glfw/releases/download/3.4/glfw-3.4.bin.WIN64.zip", glfw_dest_dir) then
--- 	print('download done')
+-- 	print('download done, building')
+-- else
+-- 	print('nothing to od')
 -- end
 
 -- glfw = mg.project({

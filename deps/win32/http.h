@@ -219,11 +219,11 @@ typedef struct _INTERNET_BUFFERSW {
     DWORD dwOffsetHigh;
 } INTERNET_BUFFERSW, * LPINTERNET_BUFFERSW;
 
-bool InternetCloseHandle(
+BOOL WINAPI InternetCloseHandle(
     HINTERNET hInternet
     );
 
-HINTERNET InternetOpenW(
+HINTERNET WINAPI InternetOpenW(
     LPCWSTR lpszAgent,
     DWORD dwAccessType,
     LPCWSTR lpszProxy,
@@ -231,14 +231,14 @@ HINTERNET InternetOpenW(
     DWORD dwFlags
     );
 
-bool InternetCrackUrlW(
+BOOL WINAPI InternetCrackUrlW(
     LPCWSTR lpszUrl,
     DWORD dwUrlLength,
     DWORD dwFlags,
     LPURL_COMPONENTSW lpUrlComponents
     );
 
-HINTERNET InternetConnectW(
+HINTERNET WINAPI InternetConnectW(
     HINTERNET hInternet,
     LPCWSTR lpszServerName,
     INTERNET_PORT nServerPort,
@@ -249,7 +249,7 @@ HINTERNET InternetConnectW(
     DWORD_PTR dwContext
     );
 
-HINTERNET HttpOpenRequestW(
+HINTERNET WINAPI HttpOpenRequestW(
     HINTERNET hConnect,
     LPCWSTR lpszVerb,
     LPCWSTR lpszObjectName,
@@ -260,7 +260,7 @@ HINTERNET HttpOpenRequestW(
     DWORD_PTR dwContext
     );
 
-bool HttpSendRequestW(
+BOOL WINAPI HttpSendRequestW(
     HINTERNET hRequest,
     LPCWSTR lpszHeaders,
     DWORD dwHeadersLength,
@@ -268,7 +268,7 @@ bool HttpSendRequestW(
     DWORD dwOptionalLength
     );
 
-bool HttpQueryInfoW(
+BOOL WINAPI HttpQueryInfoW(
     HINTERNET hRequest,
     DWORD dwInfoLevel,
     LPVOID lpBuffer,
@@ -276,21 +276,21 @@ bool HttpQueryInfoW(
     LPDWORD lpdwIndex
     );
 
-bool HttpEndRequestW(
+BOOL WINAPI HttpEndRequestW(
     HINTERNET           hRequest,
     LPINTERNET_BUFFERSW lpBuffersOut,
     DWORD               dwFlags,
     DWORD_PTR           dwContext
 );
 
-bool InternetQueryDataAvailable(
+BOOL WINAPI InternetQueryDataAvailable(
     HINTERNET hFile,
     LPDWORD lpdwNumberOfBytesAvailable,
     DWORD dwFlags,
     DWORD_PTR dwContext
     );
 
-bool InternetReadFile(
+BOOL WINAPI InternetReadFile(
     HINTERNET hFile,
     LPVOID lpBuffer,
     DWORD dwNumberOfBytesToRead,
