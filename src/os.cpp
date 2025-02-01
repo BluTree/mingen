@@ -14,6 +14,7 @@ extern "C"
 #include <win32/threads.h>
 
 #include "fs.hpp"
+#include "lua_env.hpp"
 #include "mem.hpp"
 #include "string.hpp"
 
@@ -26,24 +27,6 @@ namespace os
 		if (top == 2)
 			luaL_argcheck(L, lua_isstring(L, 2), 2, "'string' expected");
 
-		lua_Debug ar;
-		lua_getstack(L, 1, &ar);
-		lua_getinfo(L, "Sl", &ar);
-		// printf("ar = %s\n", ar.source);
-		char*    base_path = nullptr;
-		uint32_t base_path_size = 0;
-		if (str::starts_with(ar.short_src, "./") || str::starts_with(ar.short_src, ".\\"))
-		{
-			base_path_size = str::rfind(ar.short_src, "/");
-			if (base_path_size != UINT32_MAX)
-			{
-				base_path = ar.short_src + 2;
-				base_path_size -= 1;
-			}
-			else
-				base_path_size = 0;
-		}
-
 		wchar_t* wworking_dir = nullptr;
 		wchar_t* wcmd = nullptr;
 
@@ -51,13 +34,10 @@ namespace os
 		{
 			char const* working_dir = lua_tostring(L, 1);
 			uint32_t    working_dir_size = strlen(working_dir);
-			if (base_path_size && !fs::is_absolute(working_dir))
+			if (!fs::is_absolute(working_dir))
 			{
 				char* new_working_dir =
-					tmalloc<char>(base_path_size + working_dir_size + 1);
-				strncpy(new_working_dir, base_path, base_path_size);
-				strncpy(new_working_dir + base_path_size, working_dir, working_dir_size);
-				new_working_dir[base_path_size + working_dir_size] = '\0';
+					lua::resolve_path(L, working_dir, working_dir_size);
 
 				wworking_dir = char_to_wchar(new_working_dir);
 				tfree(new_working_dir);
@@ -95,35 +75,14 @@ namespace os
 		luaL_argcheck(L, lua_isstring(L, 1), 1, "'string' expected");
 		luaL_argcheck(L, lua_isstring(L, 2), 2, "'string' expected");
 
-		lua_Debug ar;
-		lua_getstack(L, 1, &ar);
-		lua_getinfo(L, "Sl", &ar);
-		// printf("ar = %s\n", ar.source);
-		char*    base_path = nullptr;
-		uint32_t base_path_size = 0;
-		if (str::starts_with(ar.short_src, "./") || str::starts_with(ar.short_src, ".\\"))
-		{
-			base_path_size = str::rfind(ar.short_src, "/");
-			if (base_path_size != UINT32_MAX)
-			{
-				base_path = ar.short_src + 2;
-				base_path_size -= 1;
-			}
-			else
-				base_path_size = 0;
-		}
-
 		char const* src_path = lua_tostring(L, 1);
 		char const* dst_path = lua_tostring(L, 2);
 		char*       resolved_src_path = nullptr;
 		char*       resolved_dst_path = nullptr;
 
-		if (base_path_size && !fs::is_absolute(src_path))
+		if (!fs::is_absolute(src_path))
 		{
-			resolved_src_path = tmalloc<char>(base_path_size + strlen(src_path) + 1);
-			strncpy(resolved_src_path, base_path, base_path_size);
-			strncpy(resolved_src_path + base_path_size, src_path, strlen(src_path));
-			resolved_src_path[base_path_size + strlen(src_path)] = '\0';
+			resolved_src_path = lua::resolve_path(L, src_path);
 		}
 		else
 		{
@@ -131,12 +90,9 @@ namespace os
 			strcpy(resolved_src_path, src_path);
 		}
 
-		if (base_path_size && !fs::is_absolute(dst_path))
+		if (!fs::is_absolute(dst_path))
 		{
-			resolved_dst_path = tmalloc<char>(base_path_size + strlen(dst_path) + 1);
-			strncpy(resolved_dst_path, base_path, base_path_size);
-			strncpy(resolved_dst_path + base_path_size, dst_path, strlen(dst_path));
-			resolved_dst_path[base_path_size + strlen(dst_path)] = '\0';
+			resolved_dst_path = lua::resolve_path(L, dst_path);
 		}
 		else
 		{

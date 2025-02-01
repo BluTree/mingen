@@ -16,10 +16,7 @@ namespace prj
 {
 	namespace
 	{
-		void fill_prebuilt_project(lua::input const& in,
-		                           lua::output&      out,
-		                           char const*       base_path,
-		                           uint32_t          base_path_size)
+		void fill_prebuilt_project(lua_State* L, lua::input const& in, lua::output& out)
 		{
 			if (in.static_libraries_size || in.static_library_directories_size)
 			{
@@ -33,13 +30,19 @@ namespace prj
 				char* link_options = tmalloc<char>(link_options_str_capacity + 1);
 				for (uint32_t i {0}; i < in.static_library_directories_size; ++i)
 				{
-					// TODO resolve path to be relative to build/
-					uint32_t pos = 0;
-					uint32_t len = 0;
+					uint32_t    pos = 0;
+					uint32_t    len = 0;
+					char const* path = nullptr;
 					if (!fs::is_absolute(in.static_library_directories[i]))
-						len = base_path_size + strlen(in.static_library_directories[i]);
+					{
+						path = lua::resolve_path(L, in.static_library_directories[i]);
+						len = strlen(path);
+					}
 					else
+					{
+						path = in.static_library_directories[i];
 						len = strlen(in.static_library_directories[i]);
+					}
 
 					if (link_options_str_capacity < link_options_str_size + len + 8)
 					{
@@ -54,19 +57,8 @@ namespace prj
 					strncpy(link_options + link_options_str_size, "-L\"", 3);
 					link_options_str_size += 3;
 
-					if (!fs::is_absolute(in.static_library_directories[i]))
-					{
-						strncpy(link_options + link_options_str_size, "../", 3);
-						link_options_str_size += 3;
-						strncpy(link_options + link_options_str_size, base_path,
-						        base_path_size);
-						link_options_str_size += base_path_size;
-					}
-
-					strncpy(link_options + link_options_str_size,
-					        in.static_library_directories[i] + pos,
-					        strlen(in.static_library_directories[i]));
-					link_options_str_size += strlen(in.static_library_directories[i]);
+					strncpy(link_options + link_options_str_size, path, len);
+					link_options_str_size += len;
 
 					if (in.static_libraries_size ||
 					    i < in.static_library_directories_size - 1)
@@ -79,6 +71,9 @@ namespace prj
 						strncpy(link_options + link_options_str_size, "\"", 1);
 						link_options_str_size += 1;
 					}
+
+					if (!fs::is_absolute(in.static_library_directories[i]))
+						tfree(path);
 				}
 
 				for (uint32_t i {0}; i < in.static_libraries_size; ++i)
@@ -162,30 +157,11 @@ namespace prj
 		out.name = in.name;
 		in.name = nullptr;
 
-		lua_Debug info;
-		lua_getstack(L, 1, &info);
-		lua_getinfo(L, "Sl", &info);
-		// printf("info = %s\n", info.source);
-		char*    base_path = nullptr;
-		uint32_t base_path_size = 0;
-		if (str::starts_with(info.short_src, "./") ||
-		    str::starts_with(info.short_src, ".\\"))
-		{
-			base_path_size = str::rfind(info.short_src, "/");
-			if (base_path_size != UINT32_MAX)
-			{
-				base_path = info.short_src + 2;
-				base_path_size -= 1;
-			}
-			else
-				base_path_size = 0;
-		}
-
 		out.type = in.type;
 
 		if (in.type == lua::project_type::prebuilt)
 		{
-			fill_prebuilt_project(in, out, base_path, base_path_size);
+			fill_prebuilt_project(L, in, out);
 		}
 		else
 		{
@@ -205,10 +181,7 @@ namespace prj
 					}
 					else
 					{
-						filter = tmalloc<char>(base_path_size + pos + 1);
-						strncpy(filter, base_path, base_path_size);
-						strncpy(filter + base_path_size, in.sources[i], pos);
-						filter[base_path_size + pos] = '\0';
+						filter = lua::resolve_path(L, in.sources[i], pos);
 					}
 					fill_sources(filter, in.sources[i] + pos + 2, out);
 					tfree(filter);
@@ -224,10 +197,7 @@ namespace prj
 					}
 					else
 					{
-						filter = tmalloc<char>(base_path_size + pos + 1);
-						strncpy(filter, base_path, base_path_size);
-						strncpy(filter + base_path_size, in.sources[i], pos);
-						filter[base_path_size + pos] = '\0';
+						filter = lua::resolve_path(L, in.sources[i], pos);
 					}
 					fs::list_files_res files =
 						fs::list_files(filter, in.sources[i] + pos + 1);
@@ -243,7 +213,10 @@ namespace prj
 						out.sources = new_sources;
 					}
 					for (uint32_t i {0}; i < files.size; ++i)
+					{
 						out.sources[out.sources_size + i].file = files.files[i];
+						out.sources[out.sources_size + i].compile_options = nullptr;
+					}
 					out.sources_size += files.size;
 					if (files.size)
 						tfree(files.files);
@@ -253,10 +226,8 @@ namespace prj
 					char const* source = nullptr;
 					if (!fs::is_absolute(in.sources[i]))
 					{
-						char* new_source = tmalloc<char>(base_path_size + source_len + 1);
-						strncpy(new_source, base_path, base_path_size);
-						strncpy(new_source + base_path_size, in.sources[i], source_len);
-						new_source[base_path_size + source_len] = '\0';
+						char* new_source =
+							lua::resolve_path(L, in.sources[i], source_len);
 						source = new_source;
 					}
 					else
@@ -277,40 +248,44 @@ namespace prj
 							                              sizeof(lua::output::source));
 							out.sources = new_sources;
 						}
-						out.sources[out.sources_size].file = in.sources[i];
+						out.sources[out.sources_size].file = source;
+						out.sources[out.sources_size].compile_options = nullptr;
 						++out.sources_size;
-						in.sources[i] = nullptr;
-					}
 
-					if (!fs::is_absolute(source))
-						tfree(source);
+						if (fs::is_absolute(source))
+							in.sources[i] = nullptr;
+					}
 				}
 			}
 
 			if (in.compile_options_size || in.includes_size)
 			{
 				uint32_t compile_options_str_size {0};
-				for (uint32_t i {0}; i < in.compile_options_size; ++i)
-					compile_options_str_size += strlen(in.compile_options[i]) + 1;
-				for (uint32_t i {0}; i < in.includes_size; ++i)
-					if (fs::is_absolute(in.includes[i]))
-						compile_options_str_size +=
-							strlen(in.includes[i]) + 5 /*-I + ""*/;
-					else
-						compile_options_str_size +=
-							base_path_size + strlen(in.includes[i]) + 8 /*-I + "../"*/;
-
-				char*    compile_options = tmalloc<char>(compile_options_str_size);
-				uint32_t pos {0};
+				uint32_t compile_options_str_capacity {0};
+				char*    compile_options = tmalloc<char>(compile_options_str_capacity);
 				for (uint32_t i {0}; i < in.compile_options_size; ++i)
 				{
 					uint32_t len {static_cast<uint32_t>(strlen(in.compile_options[i]))};
-					strncpy(compile_options + pos, in.compile_options[i], len);
-					pos += len;
+					if (compile_options_str_capacity < compile_options_str_size + len + 1)
+					{
+						if (!compile_options_str_capacity)
+							compile_options_str_capacity = len + 1;
+
+						while (compile_options_str_capacity <
+						       compile_options_str_size + len + 1)
+							compile_options_str_capacity *= 2;
+
+						compile_options =
+							trealloc(compile_options, compile_options_str_capacity + 1);
+					}
+
+					strncpy(compile_options + compile_options_str_size,
+					        in.compile_options[i], len);
+					compile_options_str_size += len;
 					if (in.includes_size || i < in.compile_options_size - 1)
 					{
-						strncpy(compile_options + pos, " ", 1);
-						pos += 1;
+						strncpy(compile_options + compile_options_str_size, " ", 1);
+						compile_options_str_size += 1;
 					}
 				}
 
@@ -319,33 +294,79 @@ namespace prj
 					uint32_t len {static_cast<uint32_t>(strlen(in.includes[i]))};
 					if (fs::is_absolute(in.includes[i]))
 					{
-						strncpy(compile_options + pos, "-I\"", 3);
-						pos += 3;
+						if (compile_options_str_capacity <
+						    compile_options_str_size + len + 3)
+						{
+							if (!compile_options_str_capacity)
+								compile_options_str_capacity = len + 3;
+
+							while (compile_options_str_capacity <
+							       compile_options_str_size + len + 3)
+								compile_options_str_capacity *= 2;
+
+							compile_options = trealloc(compile_options,
+							                           compile_options_str_capacity + 1);
+						}
+						strncpy(compile_options + compile_options_str_size, "-I\"", 3);
+						compile_options_str_size += 3;
+						strncpy(compile_options + compile_options_str_size,
+						        in.includes[i], len);
+						compile_options_str_size += len;
 					}
 					else
 					{
-						strncpy(compile_options + pos, "-I\"../", 6);
-						pos += 6;
+						char const* include = lua::resolve_path(L, in.includes[i], len);
+						len = strlen(include);
+						if (compile_options_str_capacity <
+						    compile_options_str_size + len + 6)
+						{
+							if (!compile_options_str_capacity)
+								compile_options_str_capacity = len + 6;
+
+							while (compile_options_str_capacity <
+							       compile_options_str_size + len + 6)
+								compile_options_str_capacity *= 2;
+
+							compile_options = trealloc(compile_options,
+							                           compile_options_str_capacity + 1);
+						}
+						strncpy(compile_options + compile_options_str_size, "-I\"../", 6);
+						compile_options_str_size += 6;
+						strncpy(compile_options + compile_options_str_size, include, len);
+						compile_options_str_size += len;
+						tfree(include);
 					}
-					if (base_path_size)
-					{
-						strncpy(compile_options + pos, base_path, base_path_size);
-						pos += base_path_size;
-					}
-					strncpy(compile_options + pos, in.includes[i], len);
-					pos += len;
+
 					if (i < in.includes_size - 1)
 					{
-						strncpy(compile_options + pos, "\" ", 2);
-						pos += 2;
+						if (compile_options_str_capacity < compile_options_str_size + 2)
+						{
+							while (compile_options_str_capacity <
+							       compile_options_str_size + 2)
+								compile_options_str_capacity *= 2;
+
+							compile_options = trealloc(compile_options,
+							                           compile_options_str_capacity + 1);
+						}
+						strncpy(compile_options + compile_options_str_size, "\" ", 2);
+						compile_options_str_size += 2;
 					}
 					else
 					{
-						strncpy(compile_options + pos, "\"", 1);
-						pos += 1;
+						if (compile_options_str_capacity < compile_options_str_size + 1)
+						{
+							while (compile_options_str_capacity <
+							       compile_options_str_size + 1)
+								compile_options_str_capacity *= 1;
+
+							compile_options = trealloc(compile_options,
+							                           compile_options_str_capacity + 1);
+						}
+						strncpy(compile_options + compile_options_str_size, "\"", 1);
+						compile_options_str_size += 1;
 					}
 				}
-				compile_options[compile_options_str_size - 1] = '\0';
+				compile_options[compile_options_str_size] = '\0';
 				out.compile_options = compile_options;
 			}
 
@@ -391,7 +412,7 @@ namespace prj
 								trealloc(const_cast<char*>(out.link_options),
 							             out_link_option_size +
 							                 strlen(in.deps[i].link_options) + 2);
-							new_link_options[strlen(out.link_options)] = ' ';
+							new_link_options[strlen(new_link_options)] = ' ';
 							++out_link_option_size;
 						}
 						else

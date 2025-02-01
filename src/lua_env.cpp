@@ -11,6 +11,8 @@
 #include "state.hpp"
 #include "string.hpp"
 
+#include "fs.hpp"
+
 namespace lua
 {
 
@@ -84,44 +86,7 @@ namespace lua
 
 		int32_t get_build_dir(lua_State* L)
 		{
-			lua_Debug info;
-			lua_getstack(L, 1, &info);
-			lua_getinfo(L, "Sl", &info);
-
-			uint32_t build_dir_capacity = 6;
-			uint32_t build_dir_size = 0;
-			char*    build_dir = tmalloc<char>(build_dir_capacity /*build/*/ + 1);
-
-			if (str::starts_with(info.short_src, "./") ||
-			    str::starts_with(info.short_src, ".\\"))
-			{
-				uint32_t pos = 2;
-				uint32_t find_pos = 0;
-				while ((find_pos = str::find(info.short_src + pos, "/")) != UINT32_MAX)
-				{
-					if (build_dir_capacity < build_dir_size + 3 /*../*/)
-					{
-						build_dir_capacity += 3;
-						build_dir = trealloc(build_dir, build_dir_capacity + 1);
-					}
-
-					strncpy(build_dir + build_dir_size, "../", 3);
-					build_dir_size += 3;
-
-					pos += find_pos + 1;
-				}
-			}
-
-			if (build_dir_capacity < build_dir_size + 6 /*build/*/)
-			{
-				build_dir_capacity += 6;
-				build_dir = trealloc(build_dir, build_dir_capacity + 1);
-			}
-
-			strncpy(build_dir + build_dir_size, "build/", 6);
-			build_dir_size += 6;
-
-			build_dir[build_dir_size] = '\0';
+			char* build_dir = resolve_path(L, "build/");
 
 			lua_pushstring(L, build_dir);
 
@@ -205,6 +170,97 @@ namespace lua
 		g.file = nullptr;
 
 		return 0;
+	}
+
+	char* resolve_path(lua_State* L, char const* path, uint32_t len)
+	{
+		if (len == UINT32_MAX)
+			len = strlen(path);
+		lua_Debug info;
+		lua_getstack(L, 1, &info);
+		lua_getinfo(L, "Sl", &info);
+
+		uint32_t res_path_capacity = len;
+		uint32_t res_path_size = 0;
+		char*    res_path = tmalloc<char>(res_path_capacity + 1);
+
+		uint32_t pos = 0;
+		if (str::starts_with(info.short_src, "./") ||
+		    str::starts_with(info.short_src, ".\\"))
+			pos = 2;
+		else
+		{
+			char* cwd = fs::get_cwd();
+			if (str::starts_with(info.short_src, cwd))
+			{
+				if (str::ends_with(cwd, "/") || str::ends_with(cwd, "\\"))
+					pos = strlen(cwd);
+				else
+					pos = strlen(cwd) + 1;
+			}
+			else
+			{
+				strcpy(res_path, path);
+				tfree(cwd);
+				return res_path;
+			}
+			tfree(cwd);
+		}
+
+		uint32_t current_script_dir_count = 0;
+		uint32_t path_dir_count = 0;
+
+		for (uint32_t i {pos}; i < strlen(info.short_src); ++i)
+			if (info.short_src[i] == '/' || info.short_src[i] == '\\')
+				++current_script_dir_count;
+
+		for (uint32_t i {0}; i < len; ++i)
+			if (path[i] == '/' && i != len - 1)
+				++path_dir_count;
+
+		while (current_script_dir_count > path_dir_count)
+		{
+			if (res_path_capacity < res_path_size + 3 /*../*/)
+			{
+				while (res_path_capacity < res_path_size + 3)
+					res_path_capacity *= 2;
+				res_path = trealloc(res_path, res_path_capacity + 1);
+			}
+
+			strncpy(res_path + res_path_size, "../", 3);
+			res_path_size += 3;
+			--current_script_dir_count;
+			uint32_t find_pos = str::find(info.short_src + pos, "/");
+			if (find_pos == UINT32_MAX)
+				find_pos = str::find(info.short_src + pos, "\\");
+			pos += find_pos + 1;
+		}
+
+		uint32_t find_pos = str::rfind(info.short_src + pos, "/");
+		if (find_pos == UINT32_MAX)
+			find_pos = str::rfind(info.short_src + pos, "\\");
+
+		if (find_pos != UINT32_MAX)
+		{
+			if (res_path_capacity < res_path_size + find_pos + 1 + len)
+			{
+				while (res_path_capacity < res_path_size + find_pos + 1 + len)
+					res_path_capacity *= 2;
+				res_path = trealloc(res_path, res_path_capacity + 1);
+			}
+
+			strncpy(res_path + res_path_size, info.short_src + pos, find_pos + 1);
+			res_path_size += find_pos + 1;
+		}
+		else if (res_path_capacity < res_path_size + len)
+		{
+			while (res_path_capacity < res_path_size + len)
+				res_path_capacity *= 2;
+			res_path = trealloc(res_path, res_path_capacity + 1);
+		}
+		strncpy(res_path + res_path_size, path, len);
+		res_path[res_path_size + len] = '\0';
+		return res_path;
 	}
 
 	// NOLINTBEGIN(clang-analyzer-unix.Malloc)
