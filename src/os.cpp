@@ -37,7 +37,7 @@ namespace os
 			if (!fs::is_absolute(working_dir))
 			{
 				char* new_working_dir =
-					lua::resolve_path(L, working_dir, working_dir_size);
+					lua::resolve_path_from_script(L, working_dir, working_dir_size);
 
 				wworking_dir = char_to_wchar(new_working_dir);
 				tfree(new_working_dir);
@@ -82,7 +82,7 @@ namespace os
 
 		if (!fs::is_absolute(src_path))
 		{
-			resolved_src_path = lua::resolve_path(L, src_path);
+			resolved_src_path = lua::resolve_path_from_script(L, src_path);
 		}
 		else
 		{
@@ -92,7 +92,7 @@ namespace os
 
 		if (!fs::is_absolute(dst_path))
 		{
-			resolved_dst_path = lua::resolve_path(L, dst_path);
+			resolved_dst_path = lua::resolve_path_from_script(L, dst_path);
 		}
 		else
 		{

@@ -35,7 +35,8 @@ namespace prj
 					char const* path = nullptr;
 					if (!fs::is_absolute(in.static_library_directories[i]))
 					{
-						path = lua::resolve_path(L, in.static_library_directories[i]);
+						path = lua::resolve_path_from_script(
+							L, in.static_library_directories[i]);
 						len = strlen(path);
 					}
 					else
@@ -181,7 +182,7 @@ namespace prj
 					}
 					else
 					{
-						filter = lua::resolve_path(L, in.sources[i], pos);
+						filter = lua::resolve_path_from_script(L, in.sources[i], pos);
 					}
 					fill_sources(filter, in.sources[i] + pos + 2, out);
 					tfree(filter);
@@ -197,7 +198,7 @@ namespace prj
 					}
 					else
 					{
-						filter = lua::resolve_path(L, in.sources[i], pos);
+						filter = lua::resolve_path_from_script(L, in.sources[i], pos);
 					}
 					fs::list_files_res files =
 						fs::list_files(filter, in.sources[i] + pos + 1);
@@ -227,7 +228,7 @@ namespace prj
 					if (!fs::is_absolute(in.sources[i]))
 					{
 						char* new_source =
-							lua::resolve_path(L, in.sources[i], source_len);
+							lua::resolve_path_from_script(L, in.sources[i], source_len);
 						source = new_source;
 					}
 					else
@@ -315,7 +316,8 @@ namespace prj
 					}
 					else
 					{
-						char const* include = lua::resolve_path(L, in.includes[i], len);
+						char const* include =
+							lua::resolve_path_from_script(L, in.includes[i], len);
 						len = strlen(include);
 						if (compile_options_str_capacity <
 						    compile_options_str_size + len + 6)

@@ -86,7 +86,7 @@ namespace lua
 
 		int32_t get_build_dir(lua_State* L)
 		{
-			char* build_dir = resolve_path(L, "build/");
+			char* build_dir = resolve_path_to_script(L, "build/");
 
 			lua_pushstring(L, build_dir);
 
@@ -172,7 +172,69 @@ namespace lua
 		return 0;
 	}
 
-	char* resolve_path(lua_State* L, char const* path, uint32_t len)
+	char* resolve_path_from_script(lua_State* L, char const* path, uint32_t len)
+	{
+		if (len == UINT32_MAX)
+			len = strlen(path);
+		lua_Debug info;
+		lua_getstack(L, 1, &info);
+		lua_getinfo(L, "Sl", &info);
+
+		uint32_t res_path_capacity = len;
+		uint32_t res_path_size = 0;
+		char*    res_path = tmalloc<char>(res_path_capacity + 1);
+
+		uint32_t pos = 0;
+		if (str::starts_with(info.short_src, "./") ||
+		    str::starts_with(info.short_src, ".\\"))
+			pos = 2;
+		else
+		{
+			char* cwd = fs::get_cwd();
+			if (str::starts_with(info.short_src, cwd))
+			{
+				if (str::ends_with(cwd, "/") || str::ends_with(cwd, "\\"))
+					pos = strlen(cwd);
+				else
+					pos = strlen(cwd) + 1;
+			}
+			else
+			{
+				strcpy(res_path, path);
+				tfree(cwd);
+				return res_path;
+			}
+			tfree(cwd);
+		}
+
+		uint32_t find_pos = str::rfind(info.short_src + pos, "/");
+		if (find_pos == UINT32_MAX)
+			find_pos = str::rfind(info.short_src + pos, "\\");
+
+		if (find_pos != UINT32_MAX)
+		{
+			if (res_path_capacity < res_path_size + find_pos + 1 + len)
+			{
+				while (res_path_capacity < res_path_size + find_pos + 1 + len)
+					res_path_capacity *= 2;
+				res_path = trealloc(res_path, res_path_capacity + 1);
+			}
+
+			strncpy(res_path + res_path_size, info.short_src + pos, find_pos + 1);
+			res_path_size += find_pos + 1;
+		}
+		else if (res_path_capacity < res_path_size + len)
+		{
+			while (res_path_capacity < res_path_size + len)
+				res_path_capacity *= 2;
+			res_path = trealloc(res_path, res_path_capacity + 1);
+		}
+		strncpy(res_path + res_path_size, path, len);
+		res_path[res_path_size + len] = '\0';
+		return res_path;
+	}
+
+	char* resolve_path_to_script(lua_State* L, char const* path, uint32_t len)
 	{
 		if (len == UINT32_MAX)
 			len = strlen(path);
@@ -214,11 +276,7 @@ namespace lua
 			if (info.short_src[i] == '/' || info.short_src[i] == '\\')
 				++current_script_dir_count;
 
-		for (uint32_t i {0}; i < len; ++i)
-			if (path[i] == '/' && i != len - 1)
-				++path_dir_count;
-
-		while (current_script_dir_count > path_dir_count)
+		while (current_script_dir_count > 0)
 		{
 			if (res_path_capacity < res_path_size + 3 /*../*/)
 			{
@@ -545,8 +603,12 @@ namespace lua
 				}
 
 				if (err)
-					// TODO not error output
-					luaL_error(L, "Unknown key: %s", key);
+				{
+					luaL_where(L, 1);
+					char const* src = lua_tostring(L, -1);
+					printf("%s: Unknown key: %s\n", src, key);
+					lua_pop(L, 1);
+				}
 			}
 			lua_pop(L, 1);
 		}

@@ -15,7 +15,10 @@ namespace lua
 	void    destroy();
 	int32_t run_file(char const* filename);
 
-	char* resolve_path(lua_State* L, char const* path, uint32_t len = UINT32_MAX);
+	char*
+	resolve_path_from_script(lua_State* L, char const* path, uint32_t len = UINT32_MAX);
+	char*
+	resolve_path_to_script(lua_State* L, char const* path, uint32_t len = UINT32_MAX);
 
 	enum project_type
 	{

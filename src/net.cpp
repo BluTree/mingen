@@ -1,6 +1,7 @@
 #include "net.hpp"
 
 #include "fs.hpp"
+#include "lua_env.hpp"
 #include "mem.hpp"
 #include "string.hpp"
 
@@ -250,38 +251,16 @@ namespace net
 		luaL_argcheck(L, lua_isstring(L, 1), 1, "'string' expected");
 		luaL_argcheck(L, lua_isstring(L, 2), 2, "'string' expected");
 
-		lua_Debug ar;
-		lua_getstack(L, 1, &ar);
-		lua_getinfo(L, "Sl", &ar);
-		// printf("ar = %s\n", ar.source);
-
-		char*    base_path = nullptr;
-		uint32_t base_path_size = 0;
-		if (str::starts_with(ar.short_src, "./") || str::starts_with(ar.short_src, ".\\"))
-		{
-			base_path_size = str::rfind(ar.short_src, "/");
-			if (base_path_size != UINT32_MAX)
-			{
-				base_path = ar.short_src + 2;
-				base_path_size -= 1;
-			}
-			else
-				base_path_size = 0;
-		}
-
 		char const* url = lua_tostring(L, 1);
 		char const* lua_dest = lua_tostring(L, 2);
 		uint32_t    dest_len = strlen(lua_dest);
 		bool        trailing_slash = str::ends_with(lua_dest, "/");
 		char*       dest = nullptr;
 
-		if (base_path_size && !fs::is_absolute(lua_dest))
+		if (!fs::is_absolute(lua_dest))
 		{
-			dest = tmalloc<char>(base_path_size + dest_len + 1);
-			strncpy(dest, base_path, base_path_size);
-			strncpy(dest + base_path_size, lua_dest, dest_len);
-			dest[base_path_size + dest_len] = '\0';
-			dest_len += base_path_size;
+			dest = lua::resolve_path_from_script(L, lua_dest, dest_len);
+			dest_len = strlen(dest);
 		}
 		else
 		{
