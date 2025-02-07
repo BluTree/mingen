@@ -302,7 +302,7 @@ namespace net
 
 		hash h;
 		if (!get_archive(url, zip_dest, h))
-			luaL_error(L, "Failed to download '%'", url);
+			luaL_error(L, "Failed to download '%s'", url);
 
 		char* meta_dest =
 			tmalloc<char>(dest_len + !trailing_slash + 14 /*.dl-cache/meta*/ + 1);
