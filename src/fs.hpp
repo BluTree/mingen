@@ -47,6 +47,10 @@ namespace fs
 	/// @return false Directory doesn't exist.
 	bool dir_exists(char const* dir);
 
+	/// @brief Retrieves the current executable path.
+	/// @return char* The current executable path.
+	char* get_current_executable_path();
+
 	/// @brief Gets the current working directory.
 	/// @return char* The working directory as a full path.
 	char* get_cwd();

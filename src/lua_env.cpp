@@ -35,6 +35,99 @@ namespace lua
 			}
 		}
 
+		void collect_files(lua_State*  L,
+		                   uint32_t&   res_idx,
+		                   char const* dir_filter,
+		                   char const* file_filter)
+		{
+			fs::list_files_res files = fs::list_files(dir_filter, file_filter);
+			for (uint32_t i {0}; i < files.size; ++i)
+			{
+				lua_pushstring(L, files.files[i]);
+				lua_rawseti(L, -2, res_idx++);
+			}
+			if (files.size)
+				tfree(files.files);
+
+			fs::list_dirs_res sub_dirs = fs::list_dirs(dir_filter);
+			for (uint32_t i {0}; i < sub_dirs.size; ++i)
+			{
+				uint32_t dir_len = static_cast<uint32_t>(strlen(sub_dirs.dirs[i]));
+				char*    filter = tmalloc<char>(dir_len + 2);
+				strcpy(filter, sub_dirs.dirs[i]);
+				strcpy(filter + dir_len, "/");
+				collect_files(L, res_idx, filter, file_filter);
+
+				tfree(filter);
+				tfree(sub_dirs.dirs[i]);
+			}
+			if (sub_dirs.size)
+				tfree(sub_dirs.dirs);
+		}
+
+		int32_t collect_files(lua_State* L)
+		{
+			luaL_argcheck(L, lua_isstring(L, 1), 1, "'string' expected");
+			char const* lua_filter = lua_tostring(L, 1);
+			uint32_t    lua_filter_len = strlen(lua_filter);
+
+			lua_newtable(L);
+			uint32_t res_idx = 1;
+
+			uint32_t pos = UINT32_MAX;
+			if ((pos = str::rfind(lua_filter, "**", lua_filter_len)) != UINT32_MAX)
+			{
+				char* filter = nullptr;
+				if (fs::is_absolute(lua_filter))
+				{
+					filter = tmalloc<char>(pos + 1);
+					strncpy(filter, lua_filter, pos);
+					filter[pos] = '\0';
+				}
+				else
+				{
+					filter = lua::resolve_path_from_script(L, lua_filter, pos);
+				}
+				collect_files(L, res_idx, filter, lua_filter + pos + 2);
+				tfree(filter);
+			}
+			else if ((pos = str::rfind(lua_filter, "*", lua_filter_len)) != UINT32_MAX)
+			{
+				char* filter = nullptr;
+				if (fs::is_absolute(lua_filter))
+				{
+					filter = tmalloc<char>(pos + 1);
+					strncpy(filter, lua_filter, pos);
+					filter[pos] = '\0';
+				}
+				else
+				{
+					filter = lua::resolve_path_from_script(L, lua_filter, pos);
+				}
+				fs::list_files_res files = fs::list_files(filter, lua_filter + pos + 1);
+				for (uint32_t i {0}; i < files.size; ++i)
+				{
+					lua_pushstring(L, files.files[i]);
+					lua_rawseti(L, -2, res_idx++);
+				}
+				if (files.size)
+					tfree(files.files);
+			}
+			return 1;
+		}
+
+		int32_t resolve_path(lua_State* L)
+		{
+			luaL_argcheck(L, lua_isstring(L, 1), 1, "'string' expected");
+			char const* lua_path = lua_tostring(L, 1);
+			uint32_t    lua_path_len = strlen(lua_path);
+
+			char* resolved = lua::resolve_path_from_script(L, lua_path, lua_path_len);
+			lua_pushstring(L, resolved);
+			tfree(resolved);
+			return 1;
+		}
+
 		int32_t configurations(lua_State* L)
 		{
 			luaL_argcheck(L, lua_istable(L, 1), 1, "'array' expected");
@@ -58,6 +151,135 @@ namespace lua
 
 			if (!g.config_param)
 				g.config_param = g.configs[0];
+			return 0;
+		}
+
+		int32_t add_pre_build_cmd(lua_State* L)
+		{
+			luaL_argcheck(L, lua_istable(L, 1), 1, "'table' expected");
+			luaL_argcheck(L, lua_istable(L, 2), 2, "'table' expected");
+
+			lua_getfield(L, 1, "pre_build_cmds");
+			uint32_t len = lua_rawlen(L, -1);
+			if (lua_isnil(L, -1))
+			{
+				lua_pop(L, 1);
+				lua_newtable(L);
+			}
+
+			lua_newtable(L);
+			lua_getfield(L, 2, "input");
+			if (!lua_isnil(L, -1) && !lua_isstring(L, -1))
+				luaL_error(L, "'input': string expected");
+			else if (lua_isstring(L, -1))
+			{
+				char const* lua_input = lua_tostring(L, -1);
+				if (strlen(lua_input))
+				{
+					lua_pushstring(L, lua_input);
+					lua_setfield(L, -3, "input");
+				}
+				lua_pop(L, 1);
+			}
+			else
+				lua_pop(L, 1);
+
+			lua_getfield(L, 2, "output");
+			if (lua_isnil(L, -1))
+				luaL_error(L, "missing key: 'output'");
+			else if (!lua_isstring(L, -1))
+				luaL_error(L, "'output': string expected");
+			else
+			{
+				char const* lua_output = lua_tostring(L, -1);
+				if (!strlen(lua_output))
+					luaL_error(L, "output cannot be empty");
+				lua_pushstring(L, lua_output);
+				lua_setfield(L, -3, "output");
+				lua_pop(L, 1);
+			}
+
+			lua_getfield(L, 2, "cmd");
+			if (lua_isnil(L, -1))
+				luaL_error(L, "missing key: 'cmd'");
+			else if (!lua_isstring(L, -1))
+				luaL_error(L, "'cmd': string expected");
+			else
+			{
+				char const* lua_cmd = lua_tostring(L, -1);
+				if (!strlen(lua_cmd))
+					luaL_error(L, "cmd cannot be empty");
+				lua_pushstring(L, lua_cmd);
+				lua_setfield(L, -3, "cmd");
+				lua_pop(L, 1);
+			}
+
+			lua_rawseti(L, 3, len + 1);
+			lua_setfield(L, 1, "pre_build_cmds");
+
+			return 0;
+		}
+
+		int32_t add_pre_build_copy(lua_State* L)
+		{
+			luaL_argcheck(L, lua_istable(L, 1), 1, "'table' expected");
+			luaL_argcheck(L, lua_istable(L, 2), 2, "'table' expected");
+
+			lua_getfield(L, 1, "pre_build_cmds");
+			uint32_t len = lua_rawlen(L, -1);
+			if (lua_isnil(L, -1))
+			{
+				lua_pop(L, 1);
+				lua_newtable(L);
+			}
+
+			char* input = nullptr;
+			char* output = nullptr;
+			lua_newtable(L);
+			lua_getfield(L, 2, "input");
+			if (lua_isnil(L, -1))
+				luaL_error(L, "missing key: 'input'");
+			else if (!lua_isstring(L, -1))
+				luaL_error(L, "'input': string expected");
+			else
+			{
+				char const* lua_input = lua_tostring(L, -1);
+				if (!strlen(lua_input))
+					luaL_error(L, "input cannot be empty");
+				input = resolve_path_from_script(L, lua_input);
+				lua_pushstring(L, input);
+				lua_setfield(L, -3, "input");
+				lua_pop(L, 1);
+			}
+
+			lua_getfield(L, 2, "output");
+			if (lua_isnil(L, -1))
+				luaL_error(L, "missing key: 'output'");
+			else if (!lua_isstring(L, -1))
+				luaL_error(L, "'output': string expected");
+			else
+			{
+				output = resolve_path_from_script(L, lua_tostring(L, -1));
+				lua_pushstring(L, output);
+				lua_setfield(L, -3, "output");
+				lua_pop(L, 1);
+			}
+
+			tfree(output);
+			tfree(input);
+
+			lua_rawseti(L, 3, len + 1);
+			lua_setfield(L, 1, "pre_build_cmds");
+			return 0;
+		}
+
+		int32_t add_post_build_cmd(lua_State* L)
+		{
+			return 0;
+		}
+
+		int32_t add_post_build_copy(lua_State* L)
+		{
 			return 0;
 		}
 
@@ -120,6 +342,27 @@ namespace lua
 			lua_setfield(L, -2, project_type_names[i]);
 		}
 		lua_setfield(L, -2, "project_type");
+
+		lua_pushcclosure(L, collect_files, 0);
+		lua_setfield(L, -2, "collect_files");
+
+		lua_pushcclosure(L, resolve_path, 0);
+		lua_setfield(L, -2, "resolve_path");
+
+		lua_pushcclosure(L, add_pre_build_cmd, 0);
+		lua_setfield(L, -2, "add_pre_build_cmd");
+		lua_pushcclosure(L, add_pre_build_copy, 0);
+		lua_setfield(L, -2, "add_pre_build_copy");
+
+		// TODO
+		// add_pre_build_cmd(output, {.in='...', .out='...', .cmd='...'})
+		// add_pre_build_copy(output, {.in='...', .out='...')
+		// add_post_build_cmd(output, {.in='...', .out='...', .cmd='...'})
+		// add_post_build_copy(output, {.in='...', .out='...')
+		// .in refers to the input file used for the command, to correctly setup
+		// dependencies
+		// .out refers to the output file resulting of the command, to correctly setup
+		// dependencies
 
 		lua_pushcclosure(L, gen::ninja_generator, 0);
 		lua_setfield(L, -2, "generate");
@@ -200,7 +443,8 @@ namespace lua
 			}
 			else
 			{
-				strcpy(res_path, path);
+				strncpy(res_path, path, len);
+				res_path[len] = '\0';
 				tfree(cwd);
 				return res_path;
 			}
@@ -521,7 +765,7 @@ namespace lua
 
 	input parse_input(lua_State* L, int32_t idx)
 	{
-		input in {0};
+		input in {};
 		in.type = project_type::count;
 
 		if (idx != -1)
@@ -735,7 +979,7 @@ namespace lua
 
 	output parse_output(lua_State* L, int32_t idx)
 	{
-		output out {0};
+		output out {};
 
 		if (idx != -1)
 			lua_pushvalue(L, idx);
@@ -851,6 +1095,104 @@ namespace lua
 					lua_pop(L, 1);
 				}
 			}
+			else if (strcmp(key, "pre_build_cmds") == 0)
+			{
+				if (value_type != LUA_TTABLE)
+					luaL_error(L, "pre_build_cmds: expecting array");
+
+				uint32_t len = lua_rawlen(L, -1);
+				if (!len)
+					continue;
+
+				out.pre_build_cmd_size = len;
+				out.pre_build_cmds = tmalloc<custom_command>(len);
+				for (uint32_t i {0}; i < len; ++i)
+				{
+					lua_rawgeti(L, -1, i + 1);
+					if (lua_istable(L, -1))
+					{
+						lua_getfield(L, -1, "input");
+						if (!lua_isnil(L, -1))
+						{
+							char const* lua_input = lua_tostring(L, -1);
+							if (strlen(lua_input))
+							{
+								char* input = tmalloc<char>(strlen(lua_input) + 1);
+								strcpy(input, lua_input);
+								out.pre_build_cmds[i].in = input;
+							}
+						}
+						else
+							out.pre_build_cmds[i].in = nullptr;
+						lua_getfield(L, -2, "output");
+						char const* lua_output = lua_tostring(L, -1);
+						char*       output = tmalloc<char>(strlen(lua_output) + 1);
+						strcpy(output, lua_output);
+						out.pre_build_cmds[i].out = output;
+						lua_getfield(L, -3, "cmd");
+						if (!lua_isnil(L, -1))
+						{
+							char const* lua_cmd = lua_tostring(L, -1);
+							char*       cmd = tmalloc<char>(strlen(lua_cmd) + 1);
+							strcpy(cmd, lua_cmd);
+							out.pre_build_cmds[i].cmd = cmd;
+						}
+						else
+							out.pre_build_cmds[i].cmd = nullptr;
+						lua_pop(L, 3);
+					}
+					lua_pop(L, 1);
+				}
+			}
+			else if (strcmp(key, "post_build_cmds") == 0)
+			{
+				if (value_type != LUA_TTABLE)
+					luaL_error(L, "post_build_cmds: expecting array");
+
+				uint32_t len = lua_rawlen(L, -1);
+				if (!len)
+					continue;
+
+				out.post_build_cmd_size = len;
+				out.post_build_cmds = tmalloc<custom_command>(len);
+				for (uint32_t i {0}; i < len; ++i)
+				{
+					lua_rawgeti(L, -1, i + 1);
+					if (lua_istable(L, -1))
+					{
+						lua_getfield(L, -1, "input");
+						if (!lua_isnil(L, -1))
+						{
+							char const* lua_input = lua_tostring(L, -1);
+							if (strlen(lua_input))
+							{
+								char* input = tmalloc<char>(strlen(lua_input) + 1);
+								strcpy(input, lua_input);
+								out.post_build_cmds[i].in = input;
+							}
+						}
+						else
+							out.post_build_cmds[i].in = nullptr;
+						lua_getfield(L, -2, "output");
+						char const* lua_output = lua_tostring(L, -1);
+						char*       output = tmalloc<char>(strlen(lua_output) + 1);
+						strcpy(output, lua_output);
+						out.post_build_cmds[i].out = output;
+						lua_getfield(L, -3, "cmd");
+						if (!lua_isnil(L, -1))
+						{
+							char const* lua_cmd = lua_tostring(L, -1);
+							char*       cmd = tmalloc<char>(strlen(lua_cmd) + 1);
+							strcpy(cmd, lua_cmd);
+							out.post_build_cmds[i].cmd = cmd;
+						}
+						else
+							out.post_build_cmds[i].cmd = nullptr;
+						lua_pop(L, 3);
+					}
+					lua_pop(L, 1);
+				}
+			}
 			lua_pop(L, 1);
 		}
 
@@ -883,5 +1225,30 @@ namespace lua
 
 		if (out.link_options)
 			tfree(out.link_options);
+
+		if (out.deps)
+			tfree(out.deps);
+
+		if (out.pre_build_cmds)
+		{
+			for (uint32_t i {0}; i < out.pre_build_cmd_size; ++i)
+			{
+				tfree(out.pre_build_cmds[i].in);
+				tfree(out.pre_build_cmds[i].out);
+				tfree(out.pre_build_cmds[i].cmd);
+			}
+			tfree(out.pre_build_cmds);
+		}
+
+		if (out.post_build_cmds)
+		{
+			for (uint32_t i {0}; i < out.post_build_cmd_size; ++i)
+			{
+				tfree(out.post_build_cmds[i].in);
+				tfree(out.post_build_cmds[i].out);
+				tfree(out.post_build_cmds[i].cmd);
+			}
+			tfree(out.post_build_cmds);
+		}
 	}
 } // namespace lua

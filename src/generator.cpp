@@ -200,28 +200,76 @@ namespace gen
 #endif
 		}
 
+		void write_custom_command(lua::custom_command* cmds,
+		                          uint32_t             cmd_size,
+		                          FILE*                file,
+		                          char const*          first_cmd_chain = nullptr)
+		{
+			// TODO handle null output
+
+			for (uint32_t i {0}; i < cmd_size; ++i)
+			{
+				if (cmds[i].cmd)
+				{
+					fprintf(file, "build ../%s: cmd", cmds[i].out);
+					if (cmds[i].in)
+						fprintf(file, " ../%s", cmds[i].in);
+
+					if (i == 0 && first_cmd_chain)
+						fprintf(file, " || %s", first_cmd_chain);
+
+					fprintf(file, "\n    cmd = %s\n", cmds[i].cmd);
+				}
+				else
+				{
+					fprintf(file, "build ../%s: copy ../%s", cmds[i].out, cmds[i].in);
+					if (i == 0 && first_cmd_chain)
+						fprintf(file, " || %s\n", first_cmd_chain);
+				}
+			}
+
+			fwrite("\n", 1, 1, file);
+		}
+
 		void generate(lua::output const& out, FILE* file)
 		{
-			char*  cwd = get_ninja_cwd();
+			char* cwd = get_ninja_cwd();
+
+			write_custom_command(out.pre_build_cmds, out.pre_build_cmd_size, file);
+
 			char** objs = collect_objs(out);
 			for (uint32_t i {0}; i < out.sources_size; ++i)
 			{
-				fprintf(file, "build obj/%s/%s: cxx %s/%s\n", out.name, objs[i], cwd,
+				fprintf(file, "build obj/%s/%s: cxx %s/%s", out.name, objs[i], cwd,
 				        out.sources[i].file);
+
+				if (out.pre_build_cmd_size)
+					fprintf(file, " || %s\n",
+					        out.pre_build_cmds[out.pre_build_cmd_size - 1].out);
+				else
+					fwrite("\n", 1, 1, file);
+
 				fprintf(file, "    cxxflags = %s\n",
 				        out.sources[i].compile_options ? out.sources[i].compile_options
 				                                       : out.compile_options);
 			}
 
+			char* build_out = nullptr;
 			switch (out.type)
 			{
 				case lua::project_type::executable:
 				{
 #ifdef _WIN32
-					fprintf(file, "build bin/%s.exe: link ", out.name);
+					int32_t result = snprintf(nullptr, 0, "bin/%s.exe", out.name);
+					build_out = tmalloc<char>(result + 1);
+					snprintf(build_out, result + 1, "bin/%s.exe", out.name);
 #elif defined(__linux__)
-					fprintf(file, "build bin/%s: link ", out.name);
+					int32_t result = snprintf(nullptr, 0, "bin/%s", out.name);
+					build_out = tmalloc<char>(result + 1);
+					snprintf(build_out, result, "bin/%s", out.name);
 #endif
+
+					fprintf(file, "build %s: link ", build_out);
 					for (uint32_t i {0}; i < out.sources_size; ++i)
 						fprintf(file, "obj/%s/%s ", out.name, objs[i]);
 
@@ -231,11 +279,7 @@ namespace gen
 						fprintf(file, "\n    lflags = %s\n\n", out.link_options);
 					else
 						fwrite("\n\n", 1, 2, file);
-#ifdef _WIN32
-					fprintf(file, "build %s: phony bin/%s.exe\n\n", out.name, out.name);
-#elif defined(__linux__)
-					fprintf(file, "build %s: phony bin/%s\n\n", out.name, out.name);
-#endif
+
 					break;
 				}
 				// TODO Verify implementation, to put static export library in lib, not
@@ -243,26 +287,34 @@ namespace gen
 				case lua::project_type::shared_library:
 				{
 #ifdef _WIN32
-					fprintf(file, "build bin/%s.dll: link ", out.name);
+					int32_t result = snprintf(nullptr, 0, "bin/%s.dll", out.name);
+					build_out = tmalloc<char>(result + 1);
+					snprintf(build_out, result + 1, "bin/%s.dll", out.name);
 #elif defined(__linux__)
-					fprintf(file, "build bin/%s.so: link ", out.name);
+					int32_t result = snprintf(nullptr, 0, "bin/%s.so", out.name);
+					build_out = tmalloc<char>(result + 1);
+					snprintf(build_out, result, "bin/%s.so", out.name);
 #endif
+
+					fprintf(file, "build %s: link ", build_out);
 					for (uint32_t i {0}; i < out.sources_size; ++i)
 						fprintf(file, "obj/%s ", objs[i]);
 
 					write_deps(out, file);
 					fseek(file, -1, SEEK_CUR);
-
 					if (out.link_options)
 						fprintf(file, "\n    lflags = %s\n\n", out.link_options);
 					else
 						fwrite("\n\n", 1, 2, file);
-					fprintf(file, "build %s: phony bin/%s.a\n\n", out.name, out.name);
 					break;
 				}
 				case lua::project_type::static_library:
 				{
-					fprintf(file, "build lib/%s.a: lib ", out.name);
+					int32_t result = snprintf(nullptr, 0, "lib/%s.s", out.name);
+					build_out = tmalloc<char>(result + 1);
+					snprintf(build_out, result + 1, "lib/%s.a", out.name);
+
+					fprintf(file, "build %s: lib ", build_out);
 					for (uint32_t i {0}; i < out.sources_size; ++i)
 						fprintf(file, "obj/%s/%s ", out.name, objs[i]);
 
@@ -270,15 +322,55 @@ namespace gen
 					fseek(file, -1, SEEK_CUR);
 					fwrite("\n    lflags = rscu\n\n", 1, 19, file);
 
-					fprintf(file, "build %s: phony lib/%s.a\n\n", out.name, out.name);
 					break;
 				}
-				case lua::project_type::sources: [[fallthrough]];
+				case lua::project_type::sources:
+				{
+					uint32_t result = 0;
+					for (uint32_t i {0}; i < out.sources_size; ++i)
+						result += strlen(objs[i]) + 1;
+
+					build_out = tmalloc<char>(result);
+					uint32_t pos = 0;
+					for (uint32_t i {0}; i < out.sources_size; ++i)
+					{
+						strncpy(build_out + pos, objs[i], strlen(objs[i]));
+						pos += strlen(objs[i]);
+						if (i != out.sources_size - 1)
+						{
+							build_out[pos] = ' ';
+							++pos;
+						}
+						else
+						{
+							build_out[pos] = '\0';
+							++pos;
+						}
+					}
+				}
 				default:
 				{
 					fwrite("\n", 1, 1, file);
 					break;
 				}
+			}
+
+			write_custom_command(out.post_build_cmds, out.post_build_cmd_size, file,
+			                     build_out);
+
+			if (build_out)
+			{
+				if (out.post_build_cmd_size)
+				{
+					fprintf(file, "build %s: phony %s\n\n", out.name,
+					        out.post_build_cmds[out.post_build_cmd_size - 1].out);
+				}
+				else
+				{
+					fprintf(file, "build %s: phony %s\n\n", out.name, build_out);
+				}
+
+				tfree(build_out);
 			}
 
 			for (uint32_t i {0}; i < out.sources_size; ++i)
@@ -323,17 +415,44 @@ rule link
 
 )";
 
+#ifdef _WIN32
+		constexpr char cmd_rule[] =
+			R"(rule cmd
+    description = Running ${cmd}
+    command = cmd /c pushd .. && ${cmd}
+
+rule copy
+    description = Copying ${in} to ${out}
+    command = %s cp ${in} ${out}
+
+)";
+		char* mingen_path = fs::get_current_executable_path();
+		fprintf(file, cmd_rule, mingen_path);
+#elif defined(__linux__)
+		constexpr char cmd_rule[] =
+			R"(rule cmd
+    description = Running ${cmd}
+    command = pushd .. && ${cmd}
+
+rule copy
+    description = Copying ${in} to ${out}
+    command = cp ${in} ${out}
+
+)";
+		fwrite(cmd_rule, 1, sizeof(cmd_rule) - 1, file);
+#endif
+
 		fwrite(rules, 1, sizeof(rules) - 1, file);
 
 		lua::output* outputs = tmalloc<lua::output>(len);
 		uint32_t     outputs_size = 0;
 		uint32_t     outputs_capacity = len;
 
-		// TODO detect correctly deps written
 		for (uint32_t i {0}; i < len; ++i)
 		{
 			lua_rawgeti(L, 1, 1);
 			lua::output out = lua::parse_output(L);
+			// TODO error on invalid (prebuilt) project explicitly given for generation
 			for (uint32_t j {0}; j < out.deps_size; ++j)
 			{
 				bool write {true};
@@ -374,6 +493,8 @@ rule link
 
 		for (uint32_t i {0}; i < outputs_size; ++i)
 			generate(outputs[i], file);
+
+		// TODO write defaults (the outputs explicly given in function)
 		for (uint32_t i {0}; i < outputs_size; ++i)
 			lua::free_output(outputs[i]);
 		tfree(outputs);

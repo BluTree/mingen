@@ -151,6 +151,13 @@ namespace fs
 		return (attr != INVALID_FILE_ATTRIBUTES) && (attr & FILE_ATTRIBUTE_DIRECTORY);
 	}
 
+	char* get_current_executable_path()
+	{
+		wchar_t wcurrent_path[512] {'\0'};
+		GetModuleFileNameW(nullptr, wcurrent_path, 512);
+		return wchar_to_char(wcurrent_path);
+	}
+
 	char* get_cwd()
 	{
 		wchar_t wcwd[512];

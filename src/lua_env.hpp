@@ -62,7 +62,15 @@ namespace lua
 		// TODO dynamic_libraries to auto post_build_copy, only for prebuilt_input
 	};
 
+	struct custom_command
+	{
+		char const* in;
+		char const* out;
+		char const* cmd;
+	};
+
 	struct output
+
 	{
 		struct source
 		{
@@ -85,6 +93,11 @@ namespace lua
 		uint32_t deps_size;
 
 		// TODO dynamic_libraries to auto post_build_copy, only for prebuilt_input
+
+		custom_command* pre_build_cmds;
+		uint32_t        pre_build_cmd_size;
+		custom_command* post_build_cmds;
+		uint32_t        post_build_cmd_size;
 	};
 
 	input parse_input(lua_State* L, int32_t idx = -1);

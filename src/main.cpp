@@ -34,7 +34,14 @@ void help()
 	   " mingen does nothing with the flags itself.\n"
 "\n"
 "	--compile-db\n"
-"		Generates a JSON Compilation Database with the ninja file\n";
+"		Generates a JSON Compilation Database with the ninja file\n"
+"\n"
+"\n"
+"Miscellaneous: \n"
+"\n"
+"    cp " ITALIC "src dst" DEFAULT "\n"
+"        Copies file " ITALIC "src " DEFAULT "to " ITALIC "dst" DEFAULT ".\n"
+"        This is meant to be used internally for copies in the build process on Windows, since the system tools provided are horrible.\n";
 	// clang-format on
 	printf("%s", help_str);
 }
@@ -139,6 +146,18 @@ int main(int argc, char** argv)
 		else if (str::starts_with(argv[i], "--compile-db"))
 		{
 			g.gen_compile_db = true;
+		}
+		else if (strcmp(argv[i], "cp") == 0)
+		{
+			if (i > argc - 3)
+				fprintf(stderr, "Not enough arguments given");
+			char const* src = argv[i + 1];
+			char const* dst = argv[i + 2];
+			if (!fs::file_exists(src))
+				fprintf(stderr, "%s does not exist", src);
+
+			bool res = fs::copy_file(src, dst, true);
+			return !res;
 		}
 		else if (str::starts_with(argv[i], "-h") || str::starts_with(argv[i], "--help"))
 		{
