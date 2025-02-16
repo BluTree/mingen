@@ -275,11 +275,120 @@ namespace lua
 
 		int32_t add_post_build_cmd(lua_State* L)
 		{
+			luaL_argcheck(L, lua_istable(L, 1), 1, "'table' expected");
+			luaL_argcheck(L, lua_istable(L, 2), 2, "'table' expected");
+
+			lua_getfield(L, 1, "post_build_cmds");
+			uint32_t len = lua_rawlen(L, -1);
+			if (lua_isnil(L, -1))
+			{
+				lua_pop(L, 1);
+				lua_newtable(L);
+			}
+
+			lua_newtable(L);
+			lua_getfield(L, 2, "input");
+			if (!lua_isnil(L, -1) && !lua_isstring(L, -1))
+				luaL_error(L, "'input': string expected");
+			else if (lua_isstring(L, -1))
+			{
+				char const* lua_input = lua_tostring(L, -1);
+				if (strlen(lua_input))
+				{
+					lua_pushstring(L, lua_input);
+					lua_setfield(L, -3, "input");
+				}
+				lua_pop(L, 1);
+			}
+			else
+				lua_pop(L, 1);
+
+			lua_getfield(L, 2, "output");
+			if (lua_isnil(L, -1))
+				luaL_error(L, "missing key: 'output'");
+			else if (!lua_isstring(L, -1))
+				luaL_error(L, "'output': string expected");
+			else
+			{
+				char const* lua_output = lua_tostring(L, -1);
+				if (!strlen(lua_output))
+					luaL_error(L, "output cannot be empty");
+				lua_pushstring(L, lua_output);
+				lua_setfield(L, -3, "output");
+				lua_pop(L, 1);
+			}
+
+			lua_getfield(L, 2, "cmd");
+			if (lua_isnil(L, -1))
+				luaL_error(L, "missing key: 'cmd'");
+			else if (!lua_isstring(L, -1))
+				luaL_error(L, "'cmd': string expected");
+			else
+			{
+				char const* lua_cmd = lua_tostring(L, -1);
+				if (!strlen(lua_cmd))
+					luaL_error(L, "cmd cannot be empty");
+				lua_pushstring(L, lua_cmd);
+				lua_setfield(L, -3, "cmd");
+				lua_pop(L, 1);
+			}
+
+			lua_rawseti(L, 3, len + 1);
+			lua_setfield(L, 1, "post_build_cmds");
+
 			return 0;
 		}
 
 		int32_t add_post_build_copy(lua_State* L)
 		{
+			luaL_argcheck(L, lua_istable(L, 1), 1, "'table' expected");
+			luaL_argcheck(L, lua_istable(L, 2), 2, "'table' expected");
+
+			lua_getfield(L, 1, "post_build_cmds");
+			uint32_t len = lua_rawlen(L, -1);
+			if (lua_isnil(L, -1))
+			{
+				lua_pop(L, 1);
+				lua_newtable(L);
+			}
+
+			char* input = nullptr;
+			char* output = nullptr;
+			lua_newtable(L);
+			lua_getfield(L, 2, "input");
+			if (lua_isnil(L, -1))
+				luaL_error(L, "missing key: 'input'");
+			else if (!lua_isstring(L, -1))
+				luaL_error(L, "'input': string expected");
+			else
+			{
+				char const* lua_input = lua_tostring(L, -1);
+				if (!strlen(lua_input))
+					luaL_error(L, "input cannot be empty");
+				input = resolve_path_from_script(L, lua_input);
+				lua_pushstring(L, input);
+				lua_setfield(L, -3, "input");
+				lua_pop(L, 1);
+			}
+
+			lua_getfield(L, 2, "output");
+			if (lua_isnil(L, -1))
+				luaL_error(L, "missing key: 'output'");
+			else if (!lua_isstring(L, -1))
+				luaL_error(L, "'output': string expected");
+			else
+			{
+				output = resolve_path_from_script(L, lua_tostring(L, -1));
+				lua_pushstring(L, output);
+				lua_setfield(L, -3, "output");
+				lua_pop(L, 1);
+			}
+
+			tfree(output);
+			tfree(input);
+
+			lua_rawseti(L, 3, len + 1);
+			lua_setfield(L, 1, "post_build_cmds");
 			return 0;
 		}
 
@@ -353,6 +462,10 @@ namespace lua
 		lua_setfield(L, -2, "add_pre_build_cmd");
 		lua_pushcclosure(L, add_pre_build_copy, 0);
 		lua_setfield(L, -2, "add_pre_build_copy");
+		lua_pushcclosure(L, add_post_build_cmd, 0);
+		lua_setfield(L, -2, "add_post_build_cmd");
+		lua_pushcclosure(L, add_post_build_copy, 0);
+		lua_setfield(L, -2, "add_post_build_copy");
 
 		// TODO
 		// add_pre_build_cmd(output, {.in='...', .out='...', .cmd='...'})
