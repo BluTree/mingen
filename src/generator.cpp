@@ -211,24 +211,97 @@ namespace gen
 			{
 				if (cmds[i].cmd)
 				{
-					fprintf(file, "build ../%s: cmd", cmds[i].out);
-					if (cmds[i].in)
-						fprintf(file, " ../%s", cmds[i].in);
+					fprintf(file, "build ../%s", cmds[i].out[0]);
+					for (uint32_t j {1}; j < cmds[i].out_len; ++j)
+						fprintf(file, " ../%s", cmds[i].out[j]);
+					fwrite(": cmd", 1, 5, file);
+					for (uint32_t j {0}; j < cmds[i].in_len; ++j)
+						fprintf(file, " ../%s", cmds[i].in[j]);
 
 					if (i == 0 && first_cmd_chain)
 						fprintf(file, " || %s", first_cmd_chain);
 
-					fprintf(file, "\n    cmd = %s\n", cmds[i].cmd);
+					uint32_t in_pos = str::find(cmds[i].cmd, "${in}");
+					uint32_t out_pos = str::find(cmds[i].cmd, "${out}");
+					if (in_pos != UINT32_MAX || out_pos != UINT32_MAX)
+					{
+						uint32_t first_pos = 0;
+						uint32_t second_pos = 0;
+						if (in_pos < out_pos)
+						{
+							fprintf(file, "\n    cmd = %.*s", in_pos, cmds[i].cmd);
+							first_pos = in_pos;
+							second_pos = out_pos;
+						}
+						else
+						{
+							fprintf(file, "\n    cmd = %.*s", out_pos, cmds[i].cmd);
+							first_pos = out_pos;
+							second_pos = in_pos;
+						}
+
+						if (first_pos == in_pos)
+							for (uint32_t j {0}; j < cmds[i].in_len; ++j)
+								if (j == 0)
+									fprintf(file, "../%s", cmds[i].in[j]);
+								else
+									fprintf(file, " ../%s", cmds[i].in[j]);
+						else
+							for (uint32_t j {0}; j < cmds[i].out_len; ++j)
+								if (j == 0)
+									fprintf(file, "../%s", cmds[i].out[j]);
+								else
+									fprintf(file, " ../%s", cmds[i].out[j]);
+
+						if (second_pos != UINT32_MAX)
+						{
+							if (first_pos == in_pos)
+							{
+								fprintf(file, " %.*s", second_pos - first_pos - 5,
+								        cmds[i].cmd + first_pos + 5 /*${in}*/);
+								for (uint32_t j {0}; j < cmds[i].out_len; ++j)
+									if (j == 0)
+										fprintf(file, "../%s", cmds[i].out[j]);
+									else
+										fprintf(file, " ../%s", cmds[i].out[j]);
+								fprintf(file, "%s",
+								        cmds[i].cmd + second_pos + 6 /*${out}*/);
+							}
+							else
+							{
+								fprintf(file, " %.*s", second_pos - first_pos - 6,
+								        cmds[i].cmd + first_pos + 6 /*${out}*/);
+								for (uint32_t j {0}; j < cmds[i].in_len; ++j)
+									if (j == 0)
+										fprintf(file, "../%s", cmds[i].in[j]);
+									else
+										fprintf(file, " ../%s", cmds[i].in[j]);
+								fprintf(file, "%s",
+								        cmds[i].cmd + second_pos + 5 /*${in}*/);
+							}
+						}
+						else
+						{
+							fprintf(file, "%s", cmds[i].cmd + first_pos + 5 /*${in}*/);
+						}
+						fwrite("\n", 1, 1, file);
+					}
+					else
+						fprintf(file, "\n    cmd = %s\n", cmds[i].cmd);
 				}
 				else
 				{
-					fprintf(file, "build ../%s: copy ../%s", cmds[i].out, cmds[i].in);
+					fprintf(file, "build ../%s: copy ../%s", cmds[i].out[0],
+					        cmds[i].in[0]);
 					if (i == 0 && first_cmd_chain)
 						fprintf(file, " || %s\n", first_cmd_chain);
+					else
+						fwrite("\n", 1, 1, file);
 				}
 			}
 
-			fwrite("\n", 1, 1, file);
+			if (cmd_size)
+				fwrite("\n", 1, 1, file);
 		}
 
 		void generate(lua::output const& out, FILE* file)
@@ -244,8 +317,8 @@ namespace gen
 				        out.sources[i].file);
 
 				if (out.pre_build_cmd_size)
-					fprintf(file, " || %s\n",
-					        out.pre_build_cmds[out.pre_build_cmd_size - 1].out);
+					fprintf(file, " || ../%s\n",
+					        out.pre_build_cmds[out.pre_build_cmd_size - 1].out[0]);
 				else
 					fwrite("\n", 1, 1, file);
 
@@ -362,8 +435,8 @@ namespace gen
 			{
 				if (out.post_build_cmd_size)
 				{
-					fprintf(file, "build %s: phony %s\n\n", out.name,
-					        out.post_build_cmds[out.post_build_cmd_size - 1].out);
+					fprintf(file, "build %s: phony ../%s\n\n", out.name,
+					        out.post_build_cmds[out.post_build_cmd_size - 1].out[0]);
 				}
 				else
 				{
@@ -444,6 +517,8 @@ rule copy
 
 		fwrite(rules, 1, sizeof(rules) - 1, file);
 
+		lua::output** original_outputs = tmalloc<lua::output*>(len);
+
 		lua::output* outputs = tmalloc<lua::output>(len);
 		uint32_t     outputs_size = 0;
 		uint32_t     outputs_capacity = len;
@@ -483,6 +558,7 @@ rule copy
 				outputs_capacity *= 2;
 			}
 			outputs[outputs_size] = out;
+			original_outputs[i] = &outputs[outputs_size];
 			++outputs_size;
 
 			lua_pop(L, 1);
@@ -494,7 +570,11 @@ rule copy
 		for (uint32_t i {0}; i < outputs_size; ++i)
 			generate(outputs[i], file);
 
-		// TODO write defaults (the outputs explicly given in function)
+		fwrite("default", 1, 7, file);
+		for (uint32_t i {0}; i < len; ++i)
+			fprintf(file, " %s", original_outputs[i]->name);
+		fwrite("\n", 1, 1, file);
+
 		for (uint32_t i {0}; i < outputs_size; ++i)
 			lua::free_output(outputs[i]);
 		tfree(outputs);

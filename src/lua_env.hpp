@@ -64,9 +64,11 @@ namespace lua
 
 	struct custom_command
 	{
-		char const* in;
-		char const* out;
-		char const* cmd;
+		char const** in;
+		uint32_t     in_len;
+		char const** out;
+		uint32_t     out_len;
+		char const*  cmd;
 	};
 
 	struct output
