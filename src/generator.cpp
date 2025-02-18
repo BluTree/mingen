@@ -243,27 +243,27 @@ namespace gen
 						if (first_pos == in_pos)
 							for (uint32_t j {0}; j < cmds[i].in_len; ++j)
 								if (j == 0)
-									fprintf(file, "../%s", cmds[i].in[j]);
+									fprintf(file, "%s", cmds[i].in[j]);
 								else
-									fprintf(file, " ../%s", cmds[i].in[j]);
+									fprintf(file, " %s", cmds[i].in[j]);
 						else
 							for (uint32_t j {0}; j < cmds[i].out_len; ++j)
 								if (j == 0)
-									fprintf(file, "../%s", cmds[i].out[j]);
+									fprintf(file, "%s", cmds[i].out[j]);
 								else
-									fprintf(file, " ../%s", cmds[i].out[j]);
+									fprintf(file, " %s", cmds[i].out[j]);
 
 						if (second_pos != UINT32_MAX)
 						{
 							if (first_pos == in_pos)
 							{
-								fprintf(file, " %.*s", second_pos - first_pos - 5,
+								fprintf(file, "%.*s", second_pos - first_pos - 5,
 								        cmds[i].cmd + first_pos + 5 /*${in}*/);
 								for (uint32_t j {0}; j < cmds[i].out_len; ++j)
 									if (j == 0)
-										fprintf(file, "../%s", cmds[i].out[j]);
+										fprintf(file, "%s", cmds[i].out[j]);
 									else
-										fprintf(file, " ../%s", cmds[i].out[j]);
+										fprintf(file, " %s", cmds[i].out[j]);
 								fprintf(file, "%s",
 								        cmds[i].cmd + second_pos + 6 /*${out}*/);
 							}
@@ -273,9 +273,9 @@ namespace gen
 								        cmds[i].cmd + first_pos + 6 /*${out}*/);
 								for (uint32_t j {0}; j < cmds[i].in_len; ++j)
 									if (j == 0)
-										fprintf(file, "../%s", cmds[i].in[j]);
+										fprintf(file, "%s", cmds[i].in[j]);
 									else
-										fprintf(file, " ../%s", cmds[i].in[j]);
+										fprintf(file, " %s", cmds[i].in[j]);
 								fprintf(file, "%s",
 								        cmds[i].cmd + second_pos + 5 /*${in}*/);
 							}
@@ -347,7 +347,16 @@ namespace gen
 						fprintf(file, "obj/%s/%s ", out.name, objs[i]);
 
 					write_deps(out, file);
-					fseek(file, -1, SEEK_CUR);
+					if (out.deps_size)
+					{
+						fwrite("|", 1, 1, file);
+						for (uint32_t i {0}; i < out.deps_size; ++i)
+							fprintf(file, " %s", out.deps[i].name);
+					}
+					else
+					{
+						fseek(file, -1, SEEK_CUR);
+					}
 					if (out.link_options)
 						fprintf(file, "\n    lflags = %s\n\n", out.link_options);
 					else
@@ -374,7 +383,16 @@ namespace gen
 						fprintf(file, "obj/%s ", objs[i]);
 
 					write_deps(out, file);
-					fseek(file, -1, SEEK_CUR);
+					if (out.deps_size)
+					{
+						fwrite("|", 1, 1, file);
+						for (uint32_t i {0}; i < out.deps_size; ++i)
+							fprintf(file, " %s", out.deps[i].name);
+					}
+					else
+					{
+						fseek(file, -1, SEEK_CUR);
+					}
 					if (out.link_options)
 						fprintf(file, "\n    lflags = %s\n\n", out.link_options);
 					else
@@ -392,7 +410,16 @@ namespace gen
 						fprintf(file, "obj/%s/%s ", out.name, objs[i]);
 
 					write_deps(out, file);
-					fseek(file, -1, SEEK_CUR);
+					if (out.deps_size)
+					{
+						fwrite("|", 1, 1, file);
+						for (uint32_t i {0}; i < out.deps_size; ++i)
+							fprintf(file, " %s", out.deps[i].name);
+					}
+					else
+					{
+						fseek(file, -1, SEEK_CUR);
+					}
 					fwrite("\n    lflags = rscu\n\n", 1, 19, file);
 
 					break;
@@ -496,7 +523,7 @@ rule link
 
 rule copy
     description = Copying ${in} to ${out}
-    command = %s cp ${in} ${out}
+    command = cmd /c pushd .. && %s cp ${in} ${out}
 
 )";
 		char* mingen_path = fs::get_current_executable_path();
