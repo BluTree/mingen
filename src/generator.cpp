@@ -122,27 +122,60 @@ namespace gen
 
 		char** collect_objs(lua::output const& out)
 		{
-			char** objs = tmalloc<char*>(out.sources_size);
+			char**   objs = tmalloc<char*>(out.sources_size);
+			uint32_t path_start {UINT32_MAX};
 			for (uint32_t i {0}; i < out.sources_size; ++i)
 			{
 				uint32_t file_start {str::rfind(out.sources[i].file, "/")};
-				if (file_start != UINT32_MAX)
-					++file_start;
-				else
-					file_start = 0;
-				uint32_t file_ext {str::rfind(out.sources[i].file, ".")};
-				if (file_ext != UINT32_MAX)
+				if (file_start == UINT32_MAX)
 				{
-					objs[i] = tmalloc<char>(file_ext - file_start + 3);
-					strncpy(objs[i], out.sources[i].file + file_start,
-					        file_ext - file_start);
-					strcpy(objs[i] + file_ext - file_start, ".o");
+					path_start = 0;
+					break;
 				}
 				else
 				{
-					objs[i] = tmalloc<char>(strlen(out.sources[i].file) - file_start + 3);
-					strcpy(objs[i], out.sources[i].file + file_start);
-					strcpy(objs[i] + strlen(out.sources[i].file) - file_start, ".o");
+					if (path_start == UINT32_MAX)
+						path_start = file_start;
+
+					if (strlen(out.sources[i].file) > path_start &&
+					    strncmp(out.sources[0].file, out.sources[i].file, path_start) !=
+					        0)
+					{
+						do
+						{
+							file_start = str::rfind(out.sources[i].file, "/", path_start);
+						}
+						while (file_start != UINT32_MAX &&
+						       strncmp(out.sources[0].file, out.sources[i].file,
+						               file_start) != 0);
+
+						if (file_start == UINT32_MAX)
+						{
+							path_start = 0;
+							break;
+						}
+					}
+				}
+			}
+
+			if (path_start != 0)
+				++path_start;
+
+			for (uint32_t i {0}; i < out.sources_size; ++i)
+			{
+				uint32_t file_ext {str::rfind(out.sources[i].file, ".")};
+				if (file_ext != UINT32_MAX)
+				{
+					objs[i] = tmalloc<char>(file_ext - path_start + 3);
+					strncpy(objs[i], out.sources[i].file + path_start,
+					        file_ext - path_start);
+					strcpy(objs[i] + file_ext - path_start, ".o");
+				}
+				else
+				{
+					objs[i] = tmalloc<char>(strlen(out.sources[i].file) - path_start + 3);
+					strcpy(objs[i], out.sources[i].file + path_start);
+					strcpy(objs[i] + strlen(out.sources[i].file) - path_start, ".o");
 				}
 			}
 
@@ -203,7 +236,7 @@ namespace gen
 		void write_custom_command(lua::custom_command* cmds,
 		                          uint32_t             cmd_size,
 		                          FILE*                file,
-		                          char const*          first_cmd_chain = nullptr)
+		                          char const*          cmd_chain = nullptr)
 		{
 			// TODO handle null output
 
@@ -218,8 +251,10 @@ namespace gen
 					for (uint32_t j {0}; j < cmds[i].in_len; ++j)
 						fprintf(file, " ../%s", cmds[i].in[j]);
 
-					if (i == 0 && first_cmd_chain)
-						fprintf(file, " || %s", first_cmd_chain);
+					if (i > 0)
+						fprintf(file, " | ../%s", cmds[i - 1].out[0]);
+					if (cmd_chain)
+						fprintf(file, " || %s", cmd_chain);
 
 					uint32_t in_pos = str::find(cmds[i].cmd, "${in}");
 					uint32_t out_pos = str::find(cmds[i].cmd, "${out}");
@@ -293,8 +328,8 @@ namespace gen
 				{
 					fprintf(file, "build ../%s: copy ../%s", cmds[i].out[0],
 					        cmds[i].in[0]);
-					if (i == 0 && first_cmd_chain)
-						fprintf(file, " || %s\n", first_cmd_chain);
+					if (cmd_chain)
+						fprintf(file, " || %s\n", cmd_chain);
 					else
 						fwrite("\n", 1, 1, file);
 				}
@@ -427,13 +462,20 @@ namespace gen
 				case lua::project_type::sources:
 				{
 					uint32_t result = 0;
+					uint32_t name_len = strlen(out.name);
 					for (uint32_t i {0}; i < out.sources_size; ++i)
-						result += strlen(objs[i]) + 1;
+						result += 4 /*obj/*/ + name_len + 1 /*/*/ + strlen(objs[i]) + 1;
 
 					build_out = tmalloc<char>(result);
 					uint32_t pos = 0;
 					for (uint32_t i {0}; i < out.sources_size; ++i)
 					{
+						strncpy(build_out + pos, "obj/", 4);
+						pos += 4;
+						strncpy(build_out + pos, out.name, name_len);
+						pos += name_len;
+						build_out[pos] = '/';
+						++pos;
 						strncpy(build_out + pos, objs[i], strlen(objs[i]));
 						pos += strlen(objs[i]);
 						if (i != out.sources_size - 1)
