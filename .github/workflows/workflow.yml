@@ -19,4 +19,4 @@ jobs:
         version: 19.1.7
 
     - name: build
-      run: ninja windows.ninja
+      run: ninja -f windows.ninja
