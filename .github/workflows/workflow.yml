@@ -11,5 +11,12 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v4
-    - name: ninja
+    - name: install ninja-build
+      uses: seanmiddleditch/gha-setup-ninja@v6
+    - name: install llvm
+      uses: KyleMayes/install-llvm-action@v2.0.6
+      with:
+        version: 1.19.1.7
+
+    - name: build
       run: ninja windows.ninja
