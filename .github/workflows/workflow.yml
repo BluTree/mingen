@@ -20,3 +20,9 @@ jobs:
 
     - name: build
       run: ninja -f windows.ninja
+    - name: upload
+      uses: actions/upload-artifact@v4.6.1
+      with:
+        name: mingen
+        path: ./bin/mingen.exe
+        if-no-files-found: error
