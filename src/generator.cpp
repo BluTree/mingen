@@ -328,6 +328,8 @@ namespace gen
 				{
 					fprintf(file, "build ../%s: copy ../%s", cmds[i].out[0],
 					        cmds[i].in[0]);
+					if (i > 0)
+						fprintf(file, " | ../%s", cmds[i - 1].out[0]);
 					if (cmd_chain)
 						fprintf(file, " || %s\n", cmd_chain);
 					else
@@ -565,7 +567,7 @@ rule link
 
 rule copy
     description = Copying ${in} to ${out}
-    command = cmd /c pushd .. && %s cp ${in} ${out}
+    command = %s cp ${in} ${out}
 
 )";
 		char* mingen_path = fs::get_current_executable_path();
