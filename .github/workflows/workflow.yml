@@ -1,0 +1,28 @@
+name: Auto build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: install ninja-build
+      uses: seanmiddleditch/gha-setup-ninja@v6
+    - name: install llvm
+      uses: KyleMayes/install-llvm-action@v2.0.6
+      with:
+        version: 19.1.7
+
+    - name: build
+      run: ninja -f windows.ninja
+    - name: upload
+      uses: actions/upload-artifact@v4.6.1
+      with:
+        name: mingen
+        path: ./bin/mingen.exe
+        if-no-files-found: error
