@@ -1,5 +1,8 @@
 {
 	"editor.formatOnSave": true,
+	"editor.rulers": [
+		90
+	],
 	"C_Cpp.codeAnalysis.exclude": {
 		"deps/**": true
 	},

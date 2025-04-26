@@ -12,11 +12,6 @@ extern "C"
 #include <lua/lualib.h>
 }
 
-// #define WIN32_LEAN_AND_MEAN
-// #include <windows.h>
-
-// #include <bcrypt.h>
-// #include <wininet.h>
 #include <win32/crypt.h>
 #include <win32/http.h>
 
@@ -185,16 +180,16 @@ namespace net
 			if (file)
 			{
 				hash_init(h);
-				// TODO implement this for pretty print
-				wchar_t  content_length[32];
-				DWORD    content_length_size = sizeof(content_length);
-				uint32_t claimed_size = 0;
-				if (HttpQueryInfoW(request, HTTP_QUERY_CONTENT_LENGTH,
-				                   static_cast<LPVOID>(&content_length),
-				                   &content_length_size, 0))
-				{
-					claimed_size = wcstol(content_length, NULL, 10);
-				}
+				// TODO use content length, and read loops for pretty printing
+				// wchar_t  content_length[32];
+				// DWORD    content_length_size = sizeof(content_length);
+				// uint32_t claimed_size = 0;
+				// if (HttpQueryInfoW(request, HTTP_QUERY_CONTENT_LENGTH,
+				//                    static_cast<LPVOID>(&content_length),
+				//                    &content_length_size, 0))
+				// {
+				// 	claimed_size = wcstol(content_length, NULL, 10);
+				// }
 
 				uint8_t  response_buffer[4096];
 				DWORD    bytes_available;

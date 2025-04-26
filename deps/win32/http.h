@@ -16,6 +16,12 @@
 extern "C" {
 #endif
 
+
+#define INTERNET_OPEN_TYPE_PRECONFIG                    0   // use registry configuration
+#define INTERNET_OPEN_TYPE_DIRECT                       1   // direct to net
+#define INTERNET_OPEN_TYPE_PROXY                        3   // via named proxy
+#define INTERNET_OPEN_TYPE_PRECONFIG_WITH_NO_AUTOPROXY  4   // prevent using java/script/INS
+
 #define INTERNET_FLAG_SECURE            0x00800000  // use PCT/SSL if applicable (HTTP)
 #define INTERNET_FLAG_KEEP_CONNECTION   0x00400000  // use keep-alive semantics
 #define INTERNET_FLAG_NO_AUTO_REDIRECT  0x00200000  // don't handle redirections automatically
@@ -24,11 +30,6 @@ extern "C" {
 #define INTERNET_FLAG_NO_AUTH           0x00040000  // no automatic authentication handling
 #define INTERNET_FLAG_RESTRICTED_ZONE   0x00020000  // apply restricted zone policies for cookies, auth
 #define INTERNET_FLAG_CACHE_IF_NET_FAIL 0x00010000  // return cache file if net request fails
-
-#define INTERNET_OPEN_TYPE_PRECONFIG                    0   // use registry configuration
-#define INTERNET_OPEN_TYPE_DIRECT                       1   // direct to net
-#define INTERNET_OPEN_TYPE_PROXY                        3   // via named proxy
-#define INTERNET_OPEN_TYPE_PRECONFIG_WITH_NO_AUTOPROXY  4   // prevent using java/script/INS
 
 #define INTERNET_SERVICE_FTP    1
 #define INTERNET_SERVICE_GOPHER 2
@@ -219,6 +220,8 @@ typedef struct _INTERNET_BUFFERSW {
     DWORD dwOffsetHigh;
 } INTERNET_BUFFERSW, * LPINTERNET_BUFFERSW;
 
+/* ========================================================================= */
+/* Functions                                                                 */
 BOOL WINAPI InternetCloseHandle(
     HINTERNET hInternet
     );

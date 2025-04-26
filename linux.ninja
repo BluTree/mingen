@@ -24,8 +24,6 @@ lflags = -g -O2
 # cflags = -g -isystem"deps"
 # lflags = -fsanitize=address
 
-
-
 build obj/fs.o: cxx src/fs.cpp
 build obj/generator.o: cxx src/generator.cpp
 build obj/main.o: cxx src/main.cpp

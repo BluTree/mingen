@@ -530,7 +530,6 @@ namespace gen
 
 		luaL_argcheck(L, len > 0, 1, "generate must not be empty");
 
-		// TODO create fs::open_file / fs::close_file
 		// TODO allow customizing output directory
 
 		if (!fs::dir_exists("build/"))
@@ -598,7 +597,12 @@ rule copy
 		{
 			lua_rawgeti(L, 1, 1);
 			lua::output out = lua::parse_output(L);
-			// TODO error on invalid (prebuilt) project explicitly given for generation
+			if (out.type == lua::project_type::prebuilt)
+			{
+				luaL_error(L,
+				           "Cannot ask for prebuilt projet '%s' to be explicitly built",
+				           out.name);
+			}
 			for (uint32_t j {0}; j < out.deps_size; ++j)
 			{
 				bool write {true};

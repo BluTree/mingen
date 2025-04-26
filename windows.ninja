@@ -20,7 +20,7 @@ cflags = -g -O0 -isystem"deps"
 lflags = -g -O0 -lmsvcrt.lib -lkernel32.lib -lwininet.lib -L"deps/minizip/lib/windows" -lbzip2.lib -llzma.lib -lminizip.lib -lz-ng.lib -lzstd_static.lib -lbcrypt.lib
 
 # asan, uncomment to enable
-# TODO not working anymore with minizip lib. Temporary workaround : don't link with minizip (please help)
+# TODO not working anymore with minizip lib. Temporary workaround : don't link with minizip
 # cxxflags = -g -isystem"deps" --std=c++20 -Wno-deprecated-declarations -fsanitize=address
 # cflags = -g -isystem"deps"
 # lflags = -fsanitize=address -g -lkernel32.lib -lwininet.lib -lbcrypt.lib

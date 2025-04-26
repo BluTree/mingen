@@ -1037,8 +1037,10 @@ namespace lua
 						int32_t     config_value_type = lua_type(L, -1);
 						if (!parse_config_input(L, config_key, config_value_type, in))
 						{
-							// TODO not error output
-							luaL_error(L, "Unknown key: %s", key);
+							luaL_where(L, 1);
+							char const* src = lua_tostring(L, -1);
+							printf("%s: Unknown key: %s\n", src, key);
+							lua_pop(L, 1);
 						}
 						lua_pop(L, 1);
 					}
