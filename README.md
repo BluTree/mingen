@@ -37,3 +37,10 @@ Run `linux.ninja` file. This will create a `bin/mingen` file.
 Currently tested environment is the following: clang 18+, with Fedora 38+
 
 Warning: the linux version hasn't been tested since some times and will not compile due to the new features currently implemented in Windows only.
+
+## Dependencies
+
+This program is built using other libraries:
+- [Lua](https://www.lua.org/): Scripting language used for all the scripts.
+- [minizip-ng](https://github.com/zlib-ng/minizip-ng): Archiving and Extracting library, used to extract external archives.
+- [WindowsHModular](https://github.com/Leandros/WindowsHModular): Headers to reproduce Win32 API without including thousands of lines by include.
