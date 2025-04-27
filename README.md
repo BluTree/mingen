@@ -13,6 +13,8 @@ It works as a mono configuration, meaning a generation can only be made for one 
 
 All the functions added in the Lua environment can be found [here](/doc//api.md)
 
+The tool also supports generating `compile_commands.json` along the build files, with the `--compile-db` command-line argument.
+
 ## Todo
 Many, many things need to be added/fixed to be used with all the features and stability I want:
 
