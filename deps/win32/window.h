@@ -137,6 +137,7 @@ extern "C" {
 #define WM_SHOWWINDOW               0x0018
 #define WM_WININICHANGE             0x001A
 #define WM_NCDESTROY                0x0082
+#define WM_INPUT                    0x00FF
 
 #define WM_KEYDOWN                  0x0100
 #define WM_KEYUP                    0x0101
@@ -209,6 +210,15 @@ extern "C" {
 #define SW_FORCEMINIMIZE    11
 #define SW_MAX              11
 
+/* Get/SetWindowLong Indices: */
+
+#define GWLP_WNDPROC        -4
+#define GWLP_HINSTANCE      -6
+#define GWLP_HWNDPARENT     -8
+#define GWL_STYLE           -16
+#define GWLP_USERDATA       -21
+#define GWLP_ID             -12
+
 /* ========================================================================== */
 /* Structures:                                                                */
 typedef struct _RECT {
@@ -233,32 +243,32 @@ typedef struct tagWNDCLASS {
     LPCTSTR     lpszClassName;
 } WNDCLASS, *PWNDCLASS;
 typedef struct tagWNDCLASSEXA {
-	UINT        cbSize;
-	UINT        style;
-	WNDPROC     lpfnWndProc;
-	int         cbClsExtra;
-	int         cbWndExtra;
-	HINSTANCE   hInstance;
-	HICON       hIcon;
-	HCURSOR     hCursor;
-	HBRUSH      hbrBackground;
-	LPCSTR      lpszMenuName;
-	LPCSTR      lpszClassName;
-	HICON       hIconSm;
+    UINT        cbSize;
+    UINT        style;
+    WNDPROC     lpfnWndProc;
+    int         cbClsExtra;
+    int         cbWndExtra;
+    HINSTANCE   hInstance;
+    HICON       hIcon;
+    HCURSOR     hCursor;
+    HBRUSH      hbrBackground;
+    LPCSTR      lpszMenuName;
+    LPCSTR      lpszClassName;
+    HICON       hIconSm;
 } WNDCLASSEXA, *PWNDCLASSEXA, *NPWNDCLASSEXA, *LPWNDCLASSEXA;
 typedef struct tagWNDCLASSEXW {
-	UINT        cbSize;
-	UINT        style;
-	WNDPROC     lpfnWndProc;
-	int         cbClsExtra;
-	int         cbWndExtra;
-	HINSTANCE   hInstance;
-	HICON       hIcon;
-	HCURSOR     hCursor;
-	HBRUSH      hbrBackground;
-	LPCWSTR     lpszMenuName;
-	LPCWSTR     lpszClassName;
-	HICON       hIconSm;
+    UINT        cbSize;
+    UINT        style;
+    WNDPROC     lpfnWndProc;
+    int         cbClsExtra;
+    int         cbWndExtra;
+    HINSTANCE   hInstance;
+    HICON       hIcon;
+    HCURSOR     hCursor;
+    HBRUSH      hbrBackground;
+    LPCWSTR     lpszMenuName;
+    LPCWSTR     lpszClassName;
+    HICON       hIconSm;
 } WNDCLASSEXW, *PWNDCLASSEXW, *NPWNDCLASSEXW, *LPWNDCLASSEXW;
 
 /* Messages: */
@@ -354,6 +364,9 @@ BOOL WINAPI AdjustWindowRectEx(
 BOOL WINAPI GetClientRect(
         HWND    hWnd,
         LPRECT  lpRect);
+BOOL WINAPI GetWindowRect(
+            HWND    hWnd,
+            LPRECT  lpRect);
 int WINAPI GetSystemMetrics(
         int     nIndex);
 BOOL WINAPI SetWindowPos(
@@ -364,6 +377,34 @@ BOOL WINAPI SetWindowPos(
         int     cx,
         int     cy,
         UINT    uFlags);
+LONG WINAPI GetWindowLongA(
+        HWND hWnd,
+        int nIndex);
+LONG WINAPI GetWindowLongW(
+        HWND hWnd,
+        int nIndex);
+LONG WINAPI SetWindowLongA(
+        HWND hWnd,
+        int nIndex,
+        LONG dwNewLong);
+LONG WINAPI SetWindowLongW(
+        HWND hWnd,
+        int nIndex,
+        LONG dwNewLong);
+LONG_PTR WINAPI GetWindowLongPtrA(
+        HWND hWnd,
+        int nIndex);
+LONG_PTR WINAPI GetWindowLongPtrW(
+        HWND hWnd,
+        int nIndex);
+LONG_PTR WINAPI SetWindowLongPtrA(
+        HWND hWnd,
+        int nIndex,
+        LONG_PTR dwNewLong);
+LONG_PTR WINAPI SetWindowLongPtrW(
+        HWND hWnd,
+        int nIndex,
+        LONG_PTR dwNewLong);
 
 /* ========================================================================== */
 /* Message Queue: */
@@ -415,6 +456,12 @@ BOOL WINAPI SetEvent(
 SHORT WINAPI GetKeyState(
         int     nVirtKey);
 
+/* ========================================================================== */
+/* Cursor Functions: */
+BOOL WINAPI ClipCursor(
+        const RECT *lpRect);
+int WINAPI ShowCursor(
+        BOOL bShow);
 #if defined(__cplusplus)
 }
 #endif

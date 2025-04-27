@@ -227,6 +227,7 @@ typedef DWORD *             PDWORD;
 typedef LPVOID              HANDLE;
 typedef HANDLE              HINSTANCE;
 typedef HANDLE              HWND;
+typedef HANDLE              HMONITOR;
 typedef HINSTANCE           HMODULE;
 typedef HANDLE              HDC;
 typedef HANDLE              HGLRC;
@@ -263,7 +264,6 @@ typedef LONG_PTR            SSIZE_T;
 typedef CHAR *              LPSTR;
 typedef WCHAR *             LPWSTR;
 typedef const CHAR *        LPCSTR;
-typedef const CHAR *        PCSTR;
 typedef const WCHAR *       LPCWSTR;
 typedef const WCHAR *       PCWSTR;
 

@@ -231,6 +231,25 @@ namespace fs
 		return DeleteFileW(wpath) != 0;
 	}
 
+	bool update_last_write_time(char const* path)
+	{
+		STACK_CHAR_TO_WCHAR(path, wpath);
+
+		FILETIME ft;
+		GetSystemTimeAsFileTime(&ft);
+		bool res = false;
+
+		HANDLE h = CreateFileW(wpath, FILE_WRITE_ATTRIBUTES, 0, nullptr, OPEN_EXISTING,
+		                       FILE_ATTRIBUTE_NORMAL, nullptr);
+		if (h != INVALID_HANDLE_VALUE)
+		{
+			res = SetFileTime(h, nullptr, nullptr, &ft);
+			CloseHandle(h);
+		}
+
+		return res;
+	}
+
 	bool move(char* const src_path, char* const dst_path)
 	{
 		STACK_CHAR_TO_WCHAR(src_path, wsrc_path);

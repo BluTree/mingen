@@ -157,6 +157,10 @@ int main(int argc, char** argv)
 				fprintf(stderr, "%s does not exist", src);
 
 			bool res = fs::copy_file(src, dst, true);
+			// Needed because file copy also copies the last modification metadata, and
+			// ninja relies on it to verify if copy is still needed.
+			// TODO verify behaviour on linux, if this is a Windows only thing.
+			res &= fs::update_last_write_time(dst);
 			return !res;
 		}
 		else if (str::starts_with(argv[i], "-h") || str::starts_with(argv[i], "--help"))

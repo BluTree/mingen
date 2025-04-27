@@ -91,6 +91,12 @@ namespace fs
 	/// @return false File not deleted.
 	bool delete_file(char const* path);
 
+	/// @brief Modifies the last write timestamp to current time.
+	/// @param path Path to the file to update.
+	/// @return true Update occurred.
+	/// @return false Update not occurred.
+	bool update_last_write_time(char const* path);
+
 	/// @brief Moves src_path to dst_path. if src_path is a directory, the function
 	/// also moves its children.
 	/// @param src_path Current, existing path of the file/directory to move.
