@@ -23,6 +23,7 @@ Create a project.
 |`dependencies`|`project[]`|Needed projects to build before building the current project. Resulting artifacts of dependencies are automatically added to link of the current project.|
 |`static_libraries`|`string[]`|(Prebuilt project only) Static libraries to link onto. Equivalent to `-l` link option.|
 |`static_libraries_directories`|`string[]`|(Prebuilt project only) Static libraries directories to reference for static libraries resolve. Equivalent to `-L` link option.|
+|*`configuration`*|`table`|Indicates a scope to declare additional settings, used only when generating for *configuration*. Everything keys above can be referenced, except for `name` and `type`. The settings defined in this scope is appended to the settings defined globally.|
 
 ##### Project types
 
