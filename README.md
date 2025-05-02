@@ -3,7 +3,7 @@
 
 The goal of this is to create a simple environment to create projects, on multi-platforms, with the less friction possible by executing script directly instead of creating a declarative language over Lua.
 
-Disclaimer: it is currently more a toy than a fully fledged project, used only by and for me in personal [mingen](https://github.com/BluTree/mincore) and [vulkanbox](https://github.com/BluTree/vulkanbox) projects.
+Disclaimer: it is currently more a toy than a fully fledged project, used only by and for me in personal [mincore](https://github.com/BluTree/mincore) and [vulkanbox](https://github.com/BluTree/vulkanbox) projects.
 
 ## Functionalities
 
