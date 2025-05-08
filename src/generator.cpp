@@ -251,10 +251,12 @@ namespace gen
 					for (uint32_t j {0}; j < cmds[i].in_len; ++j)
 						fprintf(file, " ../%s", cmds[i].in[j]);
 
+					if (i > 0 || cmd_chain)
+						fwrite(" ||", 1, 3, file);
 					if (i > 0)
-						fprintf(file, " | ../%s", cmds[i - 1].out[0]);
+						fprintf(file, " ../%s", cmds[i - 1].out[0]);
 					if (cmd_chain)
-						fprintf(file, " || %s", cmd_chain);
+						fprintf(file, " %s", cmd_chain);
 
 					uint32_t in_pos = str::find(cmds[i].cmd, "${in}");
 					uint32_t out_pos = str::find(cmds[i].cmd, "${out}");
@@ -328,10 +330,13 @@ namespace gen
 				{
 					fprintf(file, "build ../%s: copy ../%s", cmds[i].out[0],
 					        cmds[i].in[0]);
+					if (i > 0 || cmd_chain)
+						fwrite(" ||", 1, 3, file);
+
 					if (i > 0)
-						fprintf(file, " | ../%s", cmds[i - 1].out[0]);
+						fprintf(file, " ../%s", cmds[i - 1].out[0]);
 					if (cmd_chain)
-						fprintf(file, " || %s\n", cmd_chain);
+						fprintf(file, " %s\n", cmd_chain);
 					else
 						fwrite("\n", 1, 1, file);
 				}
@@ -595,7 +600,7 @@ rule copy
 
 		for (uint32_t i {0}; i < len; ++i)
 		{
-			lua_rawgeti(L, 1, 1);
+			lua_rawgeti(L, 1, i + 1);
 			lua::output out = lua::parse_output(L);
 			if (out.type == lua::project_type::prebuilt)
 			{
