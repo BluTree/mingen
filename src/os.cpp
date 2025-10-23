@@ -9,9 +9,16 @@ extern "C"
 #include <lua/lualib.h>
 }
 
+#ifdef _WIN32
 #include <win32/io.h>
 #include <win32/process.h>
 #include <win32/threads.h>
+#elif defined(__linux__)
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
 
 #include "fs.hpp"
 #include "lua_env.hpp"
@@ -26,7 +33,7 @@ namespace os
 		luaL_argcheck(L, lua_isstring(L, 1), 1, "'string' expected");
 		if (top == 2)
 			luaL_argcheck(L, lua_isstring(L, 2), 2, "'string' expected");
-
+#ifdef _WIN32
 		wchar_t* wworking_dir = nullptr;
 		wchar_t* wcmd = nullptr;
 
@@ -67,6 +74,60 @@ namespace os
 		tfree(wcmd);
 
 		lua_pushinteger(L, return_code);
+#elif defined(__linux__)
+		char*       working_dir = nullptr;
+		char const* cmd = nullptr;
+
+		if (top == 2)
+		{
+			char const* lua_working_dir = lua_tostring(L, 1);
+			uint32_t    working_dir_size = strlen(lua_working_dir);
+			if (!fs::is_absolute(lua_working_dir))
+			{
+				char* new_working_dir =
+					lua::resolve_path_from_script(L, lua_working_dir, working_dir_size);
+
+				working_dir = new_working_dir;
+			}
+			else
+			{
+				working_dir = tmalloc<char>(working_dir_size + 1);
+				strcpy(working_dir, lua_working_dir);
+			}
+
+			cmd = lua_tostring(L, 2);
+		}
+		else
+			cmd = lua_tostring(L, 1);
+
+		pid_t pid;
+
+		pid = fork();
+		switch (pid)
+		{
+			case -1:
+			{
+				lua_pushinteger(L, -1);
+				break;
+			}
+
+			case 0:
+			{
+				chdir(working_dir);
+				execl("/bin/sh", "sh", "-c", cmd, nullptr);
+				break;
+			}
+		}
+		tfree(working_dir);
+
+		int status;
+		waitpid(pid, &status, 0);
+
+		if (WIFEXITED(status))
+			lua_pushinteger(L, WEXITSTATUS(status));
+		else
+			lua_pushinteger(L, -1);
+#endif
 		return 1;
 	}
 

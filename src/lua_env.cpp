@@ -802,6 +802,8 @@ namespace lua
 						strcpy(str, lua_str);
 						in.sources[i] = str;
 					}
+					else
+						luaL_error(L, "sources: expecting string in array");
 					lua_pop(L, 1);
 				}
 				in.sources_size += len;
@@ -827,6 +829,8 @@ namespace lua
 						strcpy(str, lua_str);
 						in.includes[i] = str;
 					}
+					else
+						luaL_error(L, "includes: expecting string in array");
 					lua_pop(L, 1);
 				}
 				in.includes_size += len;
@@ -854,6 +858,8 @@ namespace lua
 						strcpy(str, lua_str);
 						in.compile_options[i] = str;
 					}
+					else
+						luaL_error(L, "compile_options: expecting string in array");
 					lua_pop(L, 1);
 				}
 				in.compile_options_size += len;
@@ -880,6 +886,8 @@ namespace lua
 						strcpy(str, lua_str);
 						in.link_options[i] = str;
 					}
+					else
+						luaL_error(L, "link_options: expecting string in array");
 					lua_pop(L, 1);
 				}
 
@@ -901,6 +909,8 @@ namespace lua
 					lua_rawgeti(L, -1, i - in.deps_size + 1);
 					if (lua_istable(L, -1))
 						in.deps[i] = parse_output(L);
+					else
+						luaL_error(L, "dependencies: expecting table in array");
 					lua_pop(L, 1);
 				}
 
@@ -931,6 +941,8 @@ namespace lua
 						strcpy(str, lua_str);
 						in.static_libraries[i] = str;
 					}
+					else
+						luaL_error(L, "static_libraries: expecting string in array");
 					lua_pop(L, 1);
 				}
 
@@ -962,6 +974,9 @@ namespace lua
 						strcpy(str, lua_str);
 						in.static_library_directories[i] = str;
 					}
+					else
+						luaL_error(
+							L, "static_library_directories: expecting string in array");
 					lua_pop(L, 1);
 				}
 

@@ -12,8 +12,13 @@ extern "C"
 #include <lua/lualib.h>
 }
 
+#ifdef _WIN32
 #include <win32/crypt.h>
 #include <win32/http.h>
+#elif defined(__linux__)
+#include <curl/curl.h>
+#include <openssl/md5.h>
+#endif
 
 extern "C"
 {
@@ -33,22 +38,29 @@ namespace net
 {
 	namespace
 	{
+#ifdef _WIN32
 		wchar_t const user_agent[] {L"mingen/1.0 (win-wininet)"};
+
+#endif
 
 		struct hash
 		{
+#ifdef _WIN32
 			BCRYPT_ALG_HANDLE  alg_h;
 			BCRYPT_HASH_HANDLE hash_h;
 
 			uint32_t hash_object_size;
 			uint8_t* hash_object;
-
+#elif defined(__linux__)
+			MD5_CTX ctx;
+#endif
 			uint32_t hash_size;
 			uint8_t* hash;
 		};
 
 		bool hash_init(hash& hash)
 		{
+#ifdef _WIN32
 			unsigned long unused = 0;
 			// open an algorithm handle and load the algorithm provider
 			if (BCryptOpenAlgorithmProvider(&hash.alg_h, BCRYPT_MD5_ALGORITHM, nullptr,
@@ -85,6 +97,14 @@ namespace net
 				return false;
 
 			return true;
+#elif defined(__linux__)
+			hash.hash_size = 32 + 1;
+
+			hash.hash = tmalloc<uint8_t>(hash.hash_size);
+			memset(hash.hash, 0, hash.hash_size);
+			int res = MD5_Init(&hash.ctx);
+			return res == 1;
+#endif
 		}
 
 		void hash_add(hash& hash, uint8_t* data, uint32_t size)
@@ -92,22 +112,53 @@ namespace net
 			if (!size)
 				return;
 
+#ifdef _WIN32
 			BCryptHashData(hash.hash_h, data, size, 0);
+#elif defined(__linux__)
+			MD5_Update(&hash.ctx, data, size);
+#endif
 		}
 
 		void hash_complete(hash& hash)
 		{
+#ifdef _WIN32
 			BCryptFinishHash(hash.hash_h, hash.hash, hash.hash_size, 0);
+#elif defined(__linux__)
+			MD5_Final(hash.hash, &hash.ctx);
+#endif
 		}
 
-		void hash_free(hash& hash)
+		void hash_free([[maybe_unused]] hash& hash)
 		{
+#ifdef _WIN32
 			tfree(hash.hash_object);
+#endif
 			tfree(hash.hash);
 		}
 
+#ifdef __linux__
+		struct write_userdata
+		{
+			hash& h;
+			FILE* file;
+		};
+
+		size_t write_data(void* ptr, size_t size, size_t nmemb, write_userdata* ud)
+
+		{
+			if (!nmemb)
+				return 0;
+
+			hash_add(ud->h, static_cast<uint8_t*>(ptr), nmemb);
+			size_t written = fwrite(ptr, 1, nmemb, ud->file);
+
+			return written;
+		}
+#endif
+
 		bool get_archive(char const* url, char const* dest, hash& h)
 		{
+#ifdef _WIN32
 			STACK_CHAR_TO_WCHAR(url, wurl);
 
 			HINTERNET internet = InternetOpenW(user_agent, INTERNET_OPEN_TYPE_PRECONFIG,
@@ -174,12 +225,19 @@ namespace net
 
 			if (wcscmp(status, L"200") != 0)
 				return false;
+#elif defined(__linux__)
+			CURL* curl;
+			curl = curl_easy_init();
+			if (!curl)
+				return false;
 
+#endif
 			FILE* file = fopen(dest, "wb+");
 
 			if (file)
 			{
 				hash_init(h);
+#ifdef _WIN32
 				// TODO use content length, and read loops for pretty printing
 				// wchar_t  content_length[32];
 				// DWORD    content_length_size = sizeof(content_length);
@@ -212,6 +270,19 @@ namespace net
 					else
 						break;
 				}
+#elif defined(__linux__)
+				write_userdata ud {h, file};
+				curl_easy_setopt(curl, CURLOPT_URL, url);
+				curl_easy_setopt(curl, CURLOPT_WRITEDATA, &ud);
+				curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
+				// curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
+				curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
+
+				CURLcode res = curl_easy_perform(curl);
+				curl_easy_cleanup(curl);
+				if (res != CURLE_OK)
+					return false;
+#endif
 
 				fclose(file);
 
@@ -355,27 +426,29 @@ namespace net
 		void* zip_handle = mz_zip_create();
 		void* zip_stream = mz_stream_os_create();
 		void* buf_stream = nullptr;
+
 		if (mz_stream_open(zip_stream, zip_dest, MZ_OPEN_MODE_READ) != MZ_OK)
 		{
 			tfree(zip_dest);
 			tfree(dest);
 			mz_stream_delete(&zip_stream);
-			lua_pushboolean(L, false);
-			return 1;
+			luaL_error(L, "Failed to uncompress archive");
+			return 0;
 		}
 
 		buf_stream = mz_stream_buffered_create();
 		mz_stream_buffered_open(buf_stream, NULL, MZ_OPEN_MODE_READ);
 		mz_stream_set_base(buf_stream, zip_stream);
 
-		if (mz_zip_open(zip_handle, buf_stream, MZ_OPEN_MODE_READ) != MZ_OK)
+		int32_t res = mz_zip_open(zip_handle, buf_stream, MZ_OPEN_MODE_READ);
+		if (res != MZ_OK)
 		{
 			tfree(zip_dest);
 			tfree(dest);
 			mz_stream_buffered_close(buf_stream);
 			mz_stream_buffered_delete(&buf_stream);
-			lua_pushboolean(L, false);
-			return 1;
+			luaL_error(L, "Failed to uncompress archive");
+			return 0;
 		}
 
 		mz_zip_goto_first_entry(zip_handle);
@@ -387,7 +460,7 @@ namespace net
 		uint32_t main_dir_size = 0;
 		if (mz_zip_attrib_is_dir(info->external_fa, info->version_madeby) == MZ_OK)
 		{
-			strcpy_s(main_dir_name, info->filename);
+			strcpy(main_dir_name, info->filename);
 			main_dir_size = info->filename_size;
 		}
 		mz_zip_goto_next_entry(zip_handle);

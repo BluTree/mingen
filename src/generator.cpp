@@ -381,7 +381,7 @@ namespace gen
 #elif defined(__linux__)
 					int32_t result = snprintf(nullptr, 0, "bin/%s", out.name);
 					build_out = tmalloc<char>(result + 1);
-					snprintf(build_out, result, "bin/%s", out.name);
+					snprintf(build_out, result + 1, "bin/%s", out.name);
 #endif
 
 					fprintf(file, "build %s: link ", build_out);

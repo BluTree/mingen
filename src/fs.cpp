@@ -6,8 +6,12 @@
 #include <win32/misc.h>
 #elif defined(__linux__)
 #include <dirent.h>
+#include <fcntl.h>
+#include <sys/sendfile.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
+#include <utime.h>
 #endif
 
 #include "mem.hpp"
@@ -360,6 +364,57 @@ namespace fs
 	bool create_dir(char const* path)
 	{
 		return mkdir(path, 0755) == 0;
+	}
+
+	bool delete_dir(char const* path)
+	{
+		return rmdir(path) == 0;
+	}
+
+	bool copy_file(char const* src_path, char const* dst_path, bool overwrite)
+	{
+		if (overwrite && file_exists(dst_path))
+			return false;
+
+		int fd_in = open(src_path, O_RDONLY);
+		int fd_out = open(src_path, O_WRONLY);
+
+		if (fd_in == -1)
+			return false;
+
+		struct stat stat;
+		fstat(fd_in, &stat);
+
+		return sendfile(fd_out, fd_in, nullptr, stat.st_size) != -1;
+	}
+
+	bool delete_file(char const* path)
+	{
+		return remove(path) == 0;
+	}
+
+	bool update_last_write_time(char const* path)
+	{
+		struct stat    file_stat;
+		struct utimbuf new_time;
+
+		int res = stat(path, &file_stat);
+		if (res != 0)
+			return false;
+
+		new_time.actime = file_stat.st_atime;
+		new_time.modtime = time(nullptr);
+
+		res = utime(path, &new_time);
+		return res == 0;
+	}
+
+	bool move(char* const src_path, char* const dst_path)
+	{
+		bool res = copy_file(src_path, dst_path, true);
+		if (res == false)
+			return false;
+		return delete_file(src_path);
 	}
 #else
 #error "Unsupported platform"

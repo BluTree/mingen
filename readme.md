@@ -20,7 +20,7 @@ Many, many things need to be added/fixed to be used with all the features and st
 
 - [ ] Add extensive test environment.
 - [ ] Add missing features on linux.
-- [ ] Supports other compilers/linkers, defined in scripts (for custom toolchains, shader compilation using Slang, etc...).
+- [ ] Supports other compilers/linkers, defined in scripts (for custom toolchains, shader compilation, etc...).
 - [ ] Custom `require()` function to run another mingen file with a given configuration (for external projects) as well as path relative to the currently running script.
 - [ ] Support for dynamic prebuilt libraries.
 - [ ] Better error reporting.
@@ -34,11 +34,11 @@ Run `windows.ninja` file. This will create a `bin/mingen.exe` file.
 Currently tested environment is the following: clang 18+, with Windows 11 SDK (22621)
 
 ### Linux
+Needs curl and minizip-ng development packages installed.
+
 Run `linux.ninja` file. This will create a `bin/mingen` file.
 
 Currently tested environment is the following: clang 18+, with Fedora 38+
-
-Warning: the linux version hasn't been tested since some times and will not compile due to the new features currently implemented in Windows only.
 
 ## Dependencies
 
