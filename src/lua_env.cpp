@@ -109,9 +109,11 @@ namespace lua
 				{
 					lua_pushstring(L, files.files[i]);
 					lua_rawseti(L, -2, res_idx++);
+					tfree(files.files[i]);
 				}
 				if (files.size)
 					tfree(files.files);
+				tfree(filter);
 			}
 			return 1;
 		}
@@ -1108,6 +1110,14 @@ namespace lua
 			tfree(in.sources);
 		}
 
+		if (in.includes)
+		{
+			for (uint32_t i {0}; i < in.includes_size; ++i)
+				if (in.includes[i])
+					tfree(in.includes[i]);
+			tfree(in.includes);
+		}
+
 		if (in.compile_options)
 		{
 			for (uint32_t i {0}; i < in.compile_options_size; ++i)
@@ -1560,7 +1570,11 @@ namespace lua
 			tfree(out.link_options);
 
 		if (out.deps)
+		{
+			for (uint32_t i {0}; i < out.deps_size; ++i)
+				free_output(out.deps[i]);
 			tfree(out.deps);
+		}
 
 		if (out.pre_build_cmds)
 		{

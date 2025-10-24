@@ -221,6 +221,7 @@ namespace prj
 					out.sources_size += files.size;
 					if (files.size)
 						tfree(files.files);
+					tfree(filter);
 				}
 				else
 				{
@@ -236,7 +237,9 @@ namespace prj
 						source = in.sources[i];
 					}
 
-					if (fs::file_exists(source))
+					// TODO Decide if file should already exists at declaration time or
+					// not
+					// if (fs::file_exists(source))
 					{
 						if (out.sources_capacity < out.sources_size + 1)
 						{
@@ -258,6 +261,9 @@ namespace prj
 					}
 				}
 			}
+
+			if (!out.sources_size)
+				luaL_error(L, "sources cannot be empty");
 
 			if (in.compile_options_size || in.includes_size)
 			{
@@ -402,31 +408,34 @@ namespace prj
 				lua::output* out_deps = tmalloc<lua::output>(out_deps_size);
 				for (uint32_t i {0}; i < in.deps_size; ++i)
 				{
-					if (in.deps[i].type == lua::project_type::prebuilt &&
-					    in.deps[i].link_options)
+					if (in.deps[i].type == lua::project_type::prebuilt)
 					{
-						char*    new_link_options = nullptr;
-						uint32_t out_link_option_size = 0;
-						if (out.link_options)
+						if (in.deps[i].link_options)
 						{
-							out_link_option_size = strlen(out.link_options);
-							new_link_options =
-								trealloc(const_cast<char*>(out.link_options),
-							             out_link_option_size +
-							                 strlen(in.deps[i].link_options) + 2);
-							new_link_options[strlen(new_link_options)] = ' ';
-							++out_link_option_size;
+							char*    new_link_options = nullptr;
+							uint32_t out_link_option_size = 0;
+							if (out.link_options)
+							{
+								out_link_option_size = strlen(out.link_options);
+								new_link_options =
+									trealloc(const_cast<char*>(out.link_options),
+								             out_link_option_size +
+								                 strlen(in.deps[i].link_options) + 2);
+								new_link_options[strlen(new_link_options)] = ' ';
+								++out_link_option_size;
+							}
+							else
+							{
+								new_link_options =
+									tmalloc<char>(strlen(in.deps[i].link_options) + 1);
+							}
+							strcpy(new_link_options + out_link_option_size,
+							       in.deps[i].link_options);
+							--out_deps_size;
+							out.link_options = new_link_options;
 						}
-						else
-						{
-							new_link_options =
-								tmalloc<char>(strlen(in.deps[i].link_options) + 1);
-						}
-						strcpy(new_link_options + out_link_option_size,
-						       in.deps[i].link_options);
-						--out_deps_size;
 
-						out.link_options = new_link_options;
+						lua::free_output(in.deps[i]);
 					}
 					else
 					{
@@ -437,8 +446,6 @@ namespace prj
 
 				out.deps = out_deps;
 				out.deps_size = out_deps_size;
-				in.deps = nullptr;
-				in.deps_size = 0;
 
 				tfree(in.deps);
 				in.deps = nullptr;

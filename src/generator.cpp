@@ -474,6 +474,7 @@ namespace gen
 						result += 4 /*obj/*/ + name_len + 1 /*/*/ + strlen(objs[i]) + 1;
 
 					build_out = tmalloc<char>(result);
+					memset(build_out, 0, result);
 					uint32_t pos = 0;
 					for (uint32_t i {0}; i < out.sources_size; ++i)
 					{
@@ -592,7 +593,7 @@ rule copy
 
 		fwrite(rules, 1, sizeof(rules) - 1, file);
 
-		lua::output** original_outputs = tmalloc<lua::output*>(len);
+		uint32_t* original_outputs = tmalloc<uint32_t>(len);
 
 		lua::output* outputs = tmalloc<lua::output>(len);
 		uint32_t     outputs_size = 0;
@@ -638,7 +639,7 @@ rule copy
 				outputs_capacity *= 2;
 			}
 			outputs[outputs_size] = out;
-			original_outputs[i] = &outputs[outputs_size];
+			original_outputs[i] = outputs_size;
 			++outputs_size;
 
 			lua_pop(L, 1);
@@ -652,12 +653,13 @@ rule copy
 
 		fwrite("default", 1, 7, file);
 		for (uint32_t i {0}; i < len; ++i)
-			fprintf(file, " %s", original_outputs[i]->name);
+			fprintf(file, " %s", outputs[original_outputs[i]].name);
 		fwrite("\n", 1, 1, file);
 
-		for (uint32_t i {0}; i < outputs_size; ++i)
-			lua::free_output(outputs[i]);
+		for (uint32_t i {0}; i < len; ++i)
+			lua::free_output(outputs[original_outputs[i]]);
 		tfree(outputs);
+		tfree(original_outputs);
 		fclose(file);
 		return 0;
 	}

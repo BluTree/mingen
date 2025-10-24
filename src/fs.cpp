@@ -295,6 +295,8 @@ namespace fs
 			}
 		}
 
+		closedir(dir_p);
+
 		return {dirs, dirs_count};
 	}
 
@@ -329,6 +331,8 @@ namespace fs
 				++i;
 			}
 		}
+
+		closedir(dir_p);
 
 		return {files, files_count};
 	}

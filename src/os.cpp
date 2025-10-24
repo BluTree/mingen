@@ -100,6 +100,10 @@ namespace os
 		else
 			cmd = lua_tostring(L, 1);
 
+		int stdout_fd[2];
+		int stderr_fd[2];
+		pipe(stdout_fd);
+		pipe(stderr_fd);
 		pid_t pid;
 
 		pid = fork();
@@ -107,12 +111,26 @@ namespace os
 		{
 			case -1:
 			{
+				close(stdout_fd[0]);
+				close(stdout_fd[1]);
+				close(stderr_fd[0]);
+				close(stderr_fd[1]);
+
 				lua_pushinteger(L, -1);
 				break;
 			}
 
 			case 0:
 			{
+				close(stdout_fd[0]);
+				close(stderr_fd[0]);
+
+				dup2(stdout_fd[1], 1);
+				dup2(stderr_fd[1], 2);
+
+				close(stdout_fd[1]);
+				close(stderr_fd[1]);
+
 				chdir(working_dir);
 				execl("/bin/sh", "sh", "-c", cmd, nullptr);
 				break;
@@ -123,10 +141,62 @@ namespace os
 		int status;
 		waitpid(pid, &status, 0);
 
+		lua_newtable(L);
 		if (WIFEXITED(status))
 			lua_pushinteger(L, WEXITSTATUS(status));
 		else
 			lua_pushinteger(L, -1);
+
+		lua_setfield(L, -2, "code");
+
+		close(stdout_fd[1]);
+		close(stderr_fd[1]);
+
+		char     tmp_buf[512] {'\0'};
+		uint32_t written {0};
+
+		char*    out_buf = tmalloc<char>(513);
+		uint32_t buf_size = 512;
+		memset(out_buf, 0, 513);
+
+		ssize_t readlen;
+		while ((readlen = read(stdout_fd[0], tmp_buf, sizeof(tmp_buf))) != 0)
+		{
+			if (written + readlen > buf_size)
+			{
+				out_buf = trealloc(out_buf, buf_size + 512);
+				buf_size += 512;
+			}
+			strncpy(out_buf + written, tmp_buf, readlen);
+			written += readlen;
+			out_buf[written] = '\0';
+		}
+
+		if (written > 0)
+		{
+			lua_pushstring(L, out_buf);
+			lua_setfield(L, -2, "stdout");
+		}
+
+		written = 0;
+		while ((readlen = read(stderr_fd[0], tmp_buf, sizeof(tmp_buf))) != 0)
+		{
+			if (written + readlen > buf_size)
+			{
+				out_buf = trealloc(out_buf, buf_size + 512);
+				buf_size += 512;
+			}
+			strncpy(out_buf + written, tmp_buf, readlen);
+			written += readlen;
+			out_buf[written] = '\0';
+		}
+
+		if (written > 0)
+		{
+			lua_pushstring(L, out_buf);
+			lua_setfield(L, -2, "stderr");
+		}
+		tfree(out_buf);
 #endif
 		return 1;
 	}
