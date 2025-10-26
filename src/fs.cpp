@@ -357,7 +357,7 @@ namespace fs
 
 	void set_cwd(char const* cwd)
 	{
-		int res = chdir(cwd);
+		/*int res = */ chdir(cwd);
 	}
 
 	bool is_absolute(char const* path)

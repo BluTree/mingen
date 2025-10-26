@@ -178,10 +178,18 @@ namespace lua
 				char const* lua_input = lua_tostring(L, -1);
 				if (strlen(lua_input))
 				{
-					char* input = resolve_path_from_script(L, lua_input);
-					lua_pushstring(L, input);
-					lua_setfield(L, -3, "input");
-					tfree(input);
+					if (fs::is_absolute(lua_input))
+					{
+						lua_pushstring(L, lua_input);
+						lua_setfield(L, -3, "input");
+					}
+					else
+					{
+						char* input = resolve_path_from_script(L, lua_input);
+						lua_pushstring(L, input);
+						lua_setfield(L, -3, "input");
+						tfree(input);
+					}
 				}
 				lua_pop(L, 1);
 			}
@@ -197,10 +205,18 @@ namespace lua
 					char const* lua_input = lua_tostring(L, -1);
 					if (strlen(lua_input))
 					{
-						char* input = resolve_path_from_script(L, lua_input);
-						lua_pushstring(L, input);
-						lua_rawseti(L, -3, i + 1);
-						tfree(input);
+						if (fs::is_absolute(lua_input))
+						{
+							lua_pushstring(L, lua_input);
+							lua_rawseti(L, -3, i + 1);
+						}
+						else
+						{
+							char* input = resolve_path_from_script(L, lua_input);
+							lua_pushstring(L, input);
+							lua_rawseti(L, -3, i + 1);
+							tfree(input);
+						}
 					}
 					lua_pop(L, 1);
 				}
@@ -218,10 +234,18 @@ namespace lua
 				char const* lua_output = lua_tostring(L, -1);
 				if (strlen(lua_output))
 				{
-					char* output = resolve_path_from_script(L, lua_output);
-					lua_pushstring(L, output);
-					lua_setfield(L, -3, "output");
-					tfree(output);
+					if (fs::is_absolute(lua_output))
+					{
+						lua_pushstring(L, lua_output);
+						lua_setfield(L, -3, "output");
+					}
+					else
+					{
+						char* output = resolve_path_from_script(L, lua_output);
+						lua_pushstring(L, output);
+						lua_setfield(L, -3, "output");
+						tfree(output);
+					}
 				}
 				lua_pop(L, 1);
 			}
@@ -237,10 +261,18 @@ namespace lua
 					char const* lua_output = lua_tostring(L, -1);
 					if (strlen(lua_output))
 					{
-						char* output = resolve_path_from_script(L, lua_output);
-						lua_pushstring(L, output);
-						lua_rawseti(L, -3, i + 1);
-						tfree(output);
+						if (fs::is_absolute(lua_output))
+						{
+							lua_pushstring(L, lua_output);
+							lua_rawseti(L, -3, i + 1);
+						}
+						else
+						{
+							char* output = resolve_path_from_script(L, lua_output);
+							lua_pushstring(L, output);
+							lua_rawseti(L, -3, i + 1);
+							tfree(output);
+						}
 					}
 					lua_pop(L, 1);
 				}
@@ -632,13 +664,17 @@ namespace lua
 	{
 		if (len == UINT32_MAX)
 			len = strlen(path);
+		if (fs::is_absolute(path))
+		{
+			char* new_path = tmalloc<char>(len + 1);
+			strncpy(new_path, path, len);
+			new_path[len] = '\0';
+			return new_path;
+		}
+
 		lua_Debug info;
 		lua_getstack(L, 1, &info);
 		lua_getinfo(L, "Sl", &info);
-
-		uint32_t res_path_capacity = len;
-		uint32_t res_path_size = 0;
-		char*    res_path = tmalloc<char>(res_path_capacity + 1);
 
 		uint32_t pos = 0;
 		if (str::starts_with(info.short_src, "./") ||
@@ -654,54 +690,159 @@ namespace lua
 				else
 					pos = strlen(cwd) + 1;
 			}
+			else if (str::find(info.short_src, "/"))
+			{
+				char* new_path = tmalloc<char>(len + 1);
+				strncpy(new_path, path, len);
+				new_path[len] = '\0';
+				tfree(cwd);
+				return new_path;
+			}
 			else
 			{
-				strncpy(res_path, path, len);
-				res_path[len] = '\0';
+				// TODO Generate absolute path
+				char* new_path = tmalloc<char>(len + 1);
+				strncpy(new_path, path, len);
+				new_path[len] = '\0';
 				tfree(cwd);
-				return res_path;
+				return new_path;
 			}
 			tfree(cwd);
 		}
 
-		uint32_t find_pos = str::rfind(info.short_src + pos, "/");
-		if (find_pos == UINT32_MAX)
-			find_pos = str::rfind(info.short_src + pos, "\\");
-
-		if (find_pos != UINT32_MAX)
+		struct str_view
 		{
-			if (res_path_capacity < res_path_size + find_pos + 1 + len)
+			char const* str {nullptr};
+			uint32_t    len {0};
+		};
+
+		str_view* path_fragments = tmalloc<str_view>(4);
+		uint32_t  path_fragments_len = 0;
+		uint32_t  path_fragments_cap = 4;
+
+		uint32_t find_pos = str::find(info.short_src + pos, "/");
+		uint32_t src_len {static_cast<uint32_t>(strlen(info.short_src))};
+		while (find_pos != UINT32_MAX && (find_pos + pos < src_len))
+		{
+			str_view frag {info.short_src + pos, find_pos + 1};
+			if (path_fragments_len == path_fragments_cap)
 			{
-				while (res_path_capacity < res_path_size + find_pos + 1 + len)
-					res_path_capacity *= 2;
-				res_path = trealloc(res_path, res_path_capacity + 1);
+				path_fragments_cap *= 2;
+				path_fragments = trealloc(path_fragments, path_fragments_cap);
 			}
 
-			strncpy(res_path + res_path_size, info.short_src + pos, find_pos + 1);
-			res_path_size += find_pos + 1;
+			path_fragments[path_fragments_len] = frag;
+			++path_fragments_len;
+
+			pos += find_pos + 1;
+			find_pos = str::find(info.short_src + pos, "/");
 		}
-		else if (res_path_capacity < res_path_size + len)
+
+		if (str::starts_with(path, "./") || str::starts_with(path, ".\\"))
+			pos = 2;
+		else
+			pos = 0;
+
+		find_pos = str::find(path + pos, "/");
+		while (find_pos != UINT32_MAX && (find_pos + pos < len))
 		{
-			while (res_path_capacity < res_path_size + len)
-				res_path_capacity *= 2;
-			res_path = trealloc(res_path, res_path_capacity + 1);
+			str_view frag {path + pos, find_pos + 1};
+			if (path_fragments_len == path_fragments_cap)
+			{
+				path_fragments_cap *= 2;
+				path_fragments = trealloc(path_fragments, path_fragments_cap);
+			}
+
+			path_fragments[path_fragments_len] = frag;
+			++path_fragments_len;
+
+			pos += find_pos + 1;
+			find_pos = str::find(path + pos, "/");
 		}
-		strncpy(res_path + res_path_size, path, len);
-		res_path[res_path_size + len] = '\0';
+
+		if (path_fragments_len == path_fragments_cap)
+		{
+			path_fragments_cap *= 2;
+			path_fragments = trealloc(path_fragments, path_fragments_cap);
+		}
+
+		if (len - pos > 0)
+		{
+			str_view last_path_frag {path + pos, len - pos};
+			path_fragments[path_fragments_len] = last_path_frag;
+			++path_fragments_len;
+		}
+
+		uint32_t res_path_cap {len};
+		uint32_t res_path_len {0};
+		char*    res_path = tmalloc<char>(res_path_cap + 1);
+
+		int32_t frag_pos {0};
+		bool    need_add {false};
+		for (uint32_t i {0}; i < path_fragments_len; ++i)
+		{
+			need_add = false;
+
+			str_view* frag = path_fragments + i;
+			if (strncmp(frag->str, "../", frag->len) == 0)
+			{
+				if (frag_pos > 0)
+				{
+					uint32_t last_frag = str::rfind(res_path, "/", res_path_len - 1);
+					if (last_frag == UINT32_MAX)
+						res_path_len = 0;
+					else
+						res_path_len = last_frag;
+				}
+				else
+				{
+					need_add = true;
+				}
+
+				--frag_pos;
+			}
+			else
+			{
+				++frag_pos;
+				need_add = true;
+			}
+
+			if (need_add)
+			{
+				if (res_path_len + frag->len > res_path_cap)
+				{
+					while (res_path_len + frag->len > res_path_cap)
+						res_path_cap *= 2;
+					res_path = trealloc(res_path, res_path_cap + 1);
+				}
+
+				strncpy(res_path + res_path_len, frag->str, frag->len);
+				res_path_len += frag->len;
+			}
+		}
+
+		tfree(path_fragments);
+
+		res_path[res_path_len] = '\0';
 		return res_path;
 	}
 
+	// TODO re-verify func
 	char* resolve_path_to_script(lua_State* L, char const* path, uint32_t len)
 	{
 		if (len == UINT32_MAX)
 			len = strlen(path);
+		if (fs::is_absolute(path))
+		{
+			char* new_path = tmalloc<char>(len + 1);
+			strncpy(new_path, path, len);
+			new_path[len] = '\0';
+			return new_path;
+		}
+
 		lua_Debug info;
 		lua_getstack(L, 1, &info);
 		lua_getinfo(L, "Sl", &info);
-
-		uint32_t res_path_capacity = len;
-		uint32_t res_path_size = 0;
-		char*    res_path = tmalloc<char>(res_path_capacity + 1);
 
 		uint32_t pos = 0;
 		if (str::starts_with(info.short_src, "./") ||
@@ -717,14 +858,29 @@ namespace lua
 				else
 					pos = strlen(cwd) + 1;
 			}
+			else if (str::find(info.short_src, "/"))
+			{
+				char* new_path = tmalloc<char>(len + 1);
+				strncpy(new_path, path, len);
+				new_path[len] = '\0';
+				tfree(cwd);
+				return new_path;
+			}
 			else
 			{
-				strcpy(res_path, path);
+				// TODO Generate absolute path
+				char* new_path = tmalloc<char>(len + 1);
+				strncpy(new_path, path, len);
+				new_path[len] = '\0';
 				tfree(cwd);
-				return res_path;
+				return new_path;
 			}
 			tfree(cwd);
 		}
+
+		uint32_t res_path_capacity = len;
+		uint32_t res_path_size = 0;
+		char*    res_path = tmalloc<char>(res_path_capacity + 1);
 
 		uint32_t current_script_dir_count = 0;
 		uint32_t path_dir_count = 0;
@@ -1211,6 +1367,131 @@ namespace lua
 			}
 			lua_setfield(L, -2, "dependencies");
 		}
+
+		if (out.pre_build_cmds)
+		{
+			lua_newtable(L);
+			uint32_t lua_idx {0};
+			for (uint32_t i {0}; i < out.pre_build_cmd_size; ++i)
+			{
+				custom_command* cmd = out.pre_build_cmds + i;
+				lua_newtable(L);
+				if (cmd->in_len != 0)
+				{
+					if (cmd->in_len == 1)
+					{
+						lua_pushstring(L, cmd->in[0]);
+					}
+					else
+					{
+						lua_newtable(L);
+						uint32_t lua_idx2 {1};
+						for (uint32_t j {0}; j < cmd->in_len; ++j)
+						{
+							lua_pushstring(L, cmd->in[j]);
+							lua_rawseti(L, -2, lua_idx2);
+							++lua_idx2;
+						}
+					}
+
+					lua_setfield(L, -2, "input");
+				}
+
+				if (cmd->out_len != 0)
+				{
+					if (cmd->out_len == 1)
+					{
+						lua_pushstring(L, cmd->out[0]);
+					}
+					else
+					{
+						lua_newtable(L);
+						uint32_t lua_idx2 {1};
+						for (uint32_t j {0}; j < cmd->out_len; ++j)
+						{
+							lua_pushstring(L, cmd->out[j]);
+							lua_rawseti(L, -2, lua_idx2);
+							++lua_idx2;
+						}
+					}
+
+					lua_setfield(L, -2, "output");
+				}
+
+				if (cmd->cmd)
+				{
+					lua_pushstring(L, cmd->cmd);
+					lua_setfield(L, -2, "cmd");
+				}
+
+				lua_rawseti(L, -2, lua_idx);
+				++lua_idx;
+			}
+
+			lua_setfield(L, -2, "pre_build_cmds");
+		}
+
+		if (out.post_build_cmds)
+		{
+			lua_newtable(L);
+			uint32_t lua_idx {0};
+			for (uint32_t i {0}; i < out.post_build_cmd_size; ++i)
+			{
+				custom_command* cmd = out.post_build_cmds + i;
+				if (cmd->in_len != 0)
+				{
+					if (cmd->in_len == 1)
+					{
+						lua_pushstring(L, cmd->in[0]);
+					}
+					else
+					{
+						lua_newtable(L);
+						uint32_t lua_idx2 {1};
+						for (uint32_t j {0}; j < cmd->in_len; ++j)
+						{
+							lua_pushstring(L, cmd->in[j]);
+							lua_rawseti(L, -2, lua_idx2);
+							++lua_idx2;
+						}
+					}
+
+					lua_setfield(L, -2, "input");
+				}
+
+				if (cmd->out_len != 0)
+				{
+					if (cmd->out_len == 1)
+					{
+						lua_pushstring(L, cmd->out[0]);
+					}
+					else
+					{
+						lua_newtable(L);
+						uint32_t lua_idx2 {1};
+						for (uint32_t j {0}; j < cmd->out_len; ++j)
+						{
+							lua_pushstring(L, cmd->out[j]);
+							lua_rawseti(L, -2, lua_idx2);
+							++lua_idx2;
+						}
+					}
+
+					lua_setfield(L, -2, "output");
+				}
+
+				if (cmd->cmd)
+				{
+					lua_pushstring(L, cmd->cmd);
+					lua_setfield(L, -2, "cmd");
+				}
+
+				lua_rawseti(L, -2, lua_idx);
+				++lua_idx;
+			}
+
+			lua_setfield(L, -2, "post_build_cmds");
+		}
 	}
 
 	// NOLINTBEGIN(clang-analyzer-unix.Malloc)
@@ -1276,7 +1557,7 @@ namespace lua
 								strcpy(file, lua_file);
 								out.sources[i].file = file;
 							}
-							lua_getfield(L, -1, "compile_options");
+							lua_getfield(L, -2, "compile_options");
 							if (lua_isstring(L, -1))
 							{
 								char const* lua_compile_options = lua_tostring(L, -1);

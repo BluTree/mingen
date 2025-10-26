@@ -244,17 +244,37 @@ namespace gen
 			{
 				if (cmds[i].cmd)
 				{
-					fprintf(file, "build ../%s", cmds[i].out[0]);
-					for (uint32_t j {1}; j < cmds[i].out_len; ++j)
-						fprintf(file, " ../%s", cmds[i].out[j]);
+					for (uint32_t j {0}; j < cmds[i].out_len; ++j)
+					{
+						if (j == 0)
+							fwrite("build", 1, 5, file);
+						if (fs::is_absolute(cmds[i].out[j]))
+							fprintf(file, " %s", cmds[i].out[j]);
+						else if (str::starts_with(cmds[i].out[j], "build"))
+							fprintf(file, " %s", cmds[i].out[j] + 6);
+						else
+							fprintf(file, " ../%s", cmds[i].out[j]);
+					}
 					fwrite(": cmd", 1, 5, file);
 					for (uint32_t j {0}; j < cmds[i].in_len; ++j)
-						fprintf(file, " ../%s", cmds[i].in[j]);
+						if (fs::is_absolute(cmds[i].in[j]))
+							fprintf(file, " %s", cmds[i].in[j]);
+						else if (str::starts_with(cmds[i].in[j], "build"))
+							fprintf(file, " %s", cmds[i].in[j] + 6);
+						else
+							fprintf(file, " ../%s", cmds[i].in[j]);
 
 					if (i > 0 || cmd_chain)
 						fwrite(" ||", 1, 3, file);
 					if (i > 0)
-						fprintf(file, " ../%s", cmds[i - 1].out[0]);
+					{
+						if (fs::is_absolute(cmds[i - 1].out[0]))
+							fprintf(file, " %s", cmds[i - 1].out[0]);
+						else if (str::starts_with(cmds[i - 1].out[0], "build"))
+							fprintf(file, " %s", cmds[i - 1].out[0] + 6);
+						else
+							fprintf(file, " ../%s", cmds[i - 1].out[0]);
+					}
 					if (cmd_chain)
 						fprintf(file, " %s", cmd_chain);
 
@@ -328,13 +348,33 @@ namespace gen
 				}
 				else
 				{
-					fprintf(file, "build ../%s: copy ../%s", cmds[i].out[0],
-					        cmds[i].in[0]);
+					fwrite("build ", 1, 6, file);
+					if (fs::is_absolute(cmds[i].out[0]))
+						fprintf(file, "%s: copy ", cmds[i].out[0]);
+					else if (str::starts_with(cmds[i].out[0], "build"))
+						fprintf(file, "%s: copy ", cmds[i].out[0] + 6);
+					else
+						fprintf(file, "../%s: copy ", cmds[i].out[0]);
+
+					if (fs::is_absolute(cmds[i].in[0]))
+						fprintf(file, "%s", cmds[i].in[0]);
+					else if (str::starts_with(cmds[i].in[0], "build"))
+						fprintf(file, "%s", cmds[i].in[0] + 6);
+					else
+						fprintf(file, "../%s", cmds[i].in[0]);
+
 					if (i > 0 || cmd_chain)
 						fwrite(" ||", 1, 3, file);
 
 					if (i > 0)
-						fprintf(file, " ../%s", cmds[i - 1].out[0]);
+					{
+						if (fs::is_absolute(cmds[i - 1].out[0]))
+							fprintf(file, " %s", cmds[i - 1].out[0]);
+						else if (str::starts_with(cmds[i - 1].out[0], "build"))
+							fprintf(file, " %s", cmds[i - 1].out[0] + 6);
+						else
+							fprintf(file, " ../%s", cmds[i - 1].out[0]);
+					}
 					if (cmd_chain)
 						fprintf(file, " %s\n", cmd_chain);
 					else
@@ -355,12 +395,39 @@ namespace gen
 			char** objs = collect_objs(out);
 			for (uint32_t i {0}; i < out.sources_size; ++i)
 			{
-				fprintf(file, "build obj/%s/%s: cxx %s/%s", out.name, objs[i], cwd,
-				        out.sources[i].file);
+				if (fs::is_absolute(out.sources[i].file))
+					fprintf(file, "build obj/%s/%s: cxx %s", out.name, objs[i],
+					        out.sources[i].file);
+				else if (str::starts_with(out.sources[i].file, "build"))
+					fprintf(file, "build obj/%s/%s: cxx %s", out.name, objs[i],
+					        out.sources[i].file + 6);
+				else
+					fprintf(file, "build obj/%s/%s: cxx ../%s", out.name, objs[i],
+					        out.sources[i].file);
 
 				if (out.pre_build_cmd_size)
-					fprintf(file, " || ../%s\n",
-					        out.pre_build_cmds[out.pre_build_cmd_size - 1].out[0]);
+				{
+					if (fs::is_absolute(
+							out.pre_build_cmds[out.pre_build_cmd_size - 1].out[0]))
+					{
+						fprintf(file, " || %s\n",
+						        out.pre_build_cmds[out.pre_build_cmd_size - 1].out[0]);
+					}
+					else if (str::starts_with(
+								 out.pre_build_cmds[out.pre_build_cmd_size - 1].out[0],
+								 "build"))
+					{
+						fprintf(file, " || %s\n",
+						        out.pre_build_cmds[out.pre_build_cmd_size - 1].out[0] +
+						            6);
+					}
+					else
+					{
+						fprintf(file, " || ../%s\n",
+						        out.pre_build_cmds[out.pre_build_cmd_size - 1].out[0]);
+					}
+				}
+
 				else
 					fwrite("\n", 1, 1, file);
 
@@ -512,13 +579,28 @@ namespace gen
 			{
 				if (out.post_build_cmd_size)
 				{
-					fprintf(file, "build %s: phony ../%s\n\n", out.name,
-					        out.post_build_cmds[out.post_build_cmd_size - 1].out[0]);
+					if (fs::is_absolute(
+							out.post_build_cmds[out.post_build_cmd_size - 1].out[0]))
+					{
+						fprintf(file, "build %s: phony %s\n\n", out.name,
+						        out.post_build_cmds[out.post_build_cmd_size - 1].out[0]);
+					}
+					else if (str::starts_with(
+								 out.post_build_cmds[out.post_build_cmd_size - 1].out[0],
+								 "build"))
+					{
+						fprintf(file, "build %s: phony %s\n\n", out.name,
+						        out.post_build_cmds[out.post_build_cmd_size - 1].out[0] +
+						            6);
+					}
+					else
+					{
+						fprintf(file, "build %s: phony ../%s\n\n", out.name,
+						        out.post_build_cmds[out.post_build_cmd_size - 1].out[0]);
+					}
 				}
 				else
-				{
 					fprintf(file, "build %s: phony %s\n\n", out.name, build_out);
-				}
 
 				tfree(build_out);
 			}
