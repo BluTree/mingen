@@ -398,6 +398,7 @@ namespace net
 			fwrite(checksum_str, 1, h.hash_size * 2, meta_file);
 			fclose(meta_file);
 		}
+		tfree(checksum_str);
 
 		fs::list_dirs_res dirs = fs::list_dirs(dest);
 		for (uint32_t i {0}; i < dirs.size; ++i)

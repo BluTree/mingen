@@ -431,9 +431,21 @@ namespace gen
 				else
 					fwrite("\n", 1, 1, file);
 
-				fprintf(file, "    cxxflags = %s\n",
-				        out.sources[i].compile_options ? out.sources[i].compile_options
-				                                       : out.compile_options);
+				if (fs::is_absolute(out.sources[i].file))
+				{
+					fprintf(file, "    cxxflags = %s\n",
+					        out.sources[i].compile_options
+					            ? out.sources[i].compile_options
+					            : out.compile_options);
+				}
+				else
+				{
+					// TODO absolute path ?
+					fprintf(
+						file, "    cxxflags = -fmacro-prefix-map=\"../=\" %s\n", /*cwd,*/
+						out.sources[i].compile_options ? out.sources[i].compile_options
+													   : out.compile_options);
+				}
 			}
 
 			char* build_out = nullptr;

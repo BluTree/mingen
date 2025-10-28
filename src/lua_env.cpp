@@ -599,16 +599,6 @@ namespace lua
 		lua_pushcclosure(L, add_post_build_copy, 0);
 		lua_setfield(L, -2, "add_post_build_copy");
 
-		// TODO
-		// add_pre_build_cmd(output, {.in='...', .out='...', .cmd='...'})
-		// add_pre_build_copy(output, {.in='...', .out='...')
-		// add_post_build_cmd(output, {.in='...', .out='...', .cmd='...'})
-		// add_post_build_copy(output, {.in='...', .out='...')
-		// .in refers to the input file used for the command, to correctly setup
-		// dependencies
-		// .out refers to the output file resulting of the command, to correctly setup
-		// dependencies
-
 		lua_pushcclosure(L, gen::ninja_generator, 0);
 		lua_setfield(L, -2, "generate");
 

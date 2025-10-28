@@ -310,7 +310,8 @@ namespace fs
 
 		dirent* entry {nullptr};
 		while ((entry = readdir(dir_p)))
-			if (entry->d_type == DT_REG && str::ends_with(entry->d_name, file_filter))
+			if (entry->d_type == DT_REG &&
+			    (!file_filter || str::ends_with(entry->d_name, file_filter)))
 				++files_count;
 
 		closedir(dir_p);
@@ -323,7 +324,8 @@ namespace fs
 		dir_p = opendir(dir_filter);
 		while ((entry = readdir(dir_p)))
 		{
-			if (entry->d_type == DT_REG && str::ends_with(entry->d_name, file_filter))
+			if (entry->d_type == DT_REG &&
+			    (!file_filter || str::ends_with(entry->d_name, file_filter)))
 			{
 				files[i] = tmalloc<char>(strlen(dir_filter) + strlen(entry->d_name) + 1);
 				strncpy(files[i], dir_filter, strlen(dir_filter));
