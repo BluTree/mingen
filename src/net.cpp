@@ -377,6 +377,7 @@ namespace net
 			meta_dest[dest_len] = '/';
 		strcpy(meta_dest + dest_len + !trailing_slash, ".dl-cache/meta");
 		char* checksum_str = bin_to_hex(h.hash, h.hash_size);
+		hash_free(h);
 
 		FILE* meta_file = fopen(meta_dest, "r+");
 		if (meta_file)
@@ -387,6 +388,10 @@ namespace net
 			    strncmp(buf, checksum_str, h.hash_size * 2) == 0)
 			{
 				fclose(meta_file);
+				tfree(checksum_str);
+				tfree(meta_dest);
+				tfree(zip_dest);
+				tfree(dest);
 				lua_pushboolean(L, false);
 				return 1;
 			}
